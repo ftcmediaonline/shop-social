@@ -5,6 +5,7 @@ import CategorySection from '@/components/home/CategorySection';
 import FeaturedShops from '@/components/home/FeaturedShops';
 import TrendingProducts from '@/components/home/TrendingProducts';
 import PromoBanner from '@/components/home/PromoBanner';
+import tengaLogo from '@/assets/tenga-logo.png';
 
 const Index = () => {
   return (
@@ -26,10 +27,7 @@ const Index = () => {
           <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-primary">
-                  <span className="text-sm font-bold text-primary-foreground">M</span>
-                </div>
-                <span className="font-display text-lg font-bold">Tenga</span>
+                <img src={tengaLogo} alt="Tenga Virtual Mall" className="h-12 w-auto" />
               </div>
               <p className="text-sm text-muted-foreground">
                 Your favorite shops, all in one place.

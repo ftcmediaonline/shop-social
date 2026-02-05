@@ -11,7 +11,7 @@ const PromoBanner = () => {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="relative overflow-hidden rounded-3xl bg-gradient-primary p-8 md:p-12"
+          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-navy to-navy-light p-8 md:p-12"
         >
           {/* Background Elements */}
           <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary-foreground/10 blur-3xl" />

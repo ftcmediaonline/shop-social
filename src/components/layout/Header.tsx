@@ -5,6 +5,7 @@ import { Search, ShoppingBag, User, Menu, X, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCart } from '@/context/CartContext';
+import tengaLogo from '@/assets/tenga-logo.png';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -40,10 +41,7 @@ const Header = () => {
       <div className="container flex h-16 items-center justify-between gap-4">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary">
-            <span className="text-lg font-bold text-primary-foreground">T</span>
-          </div>
-          <span className="hidden font-display text-xl font-bold sm:block">Tenga</span>
+          <img src={tengaLogo} alt="Tenga Virtual Mall" className="h-10 w-auto" />
         </Link>
 
         {/* Desktop Navigation */}
