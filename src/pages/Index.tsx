@@ -6,10 +6,8 @@ import FeaturedShops from '@/components/home/FeaturedShops';
 import TrendingProducts from '@/components/home/TrendingProducts';
 import PromoBanner from '@/components/home/PromoBanner';
 import tengaLogo from '@/assets/tenga-logo.png';
-
 const Index = () => {
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <Header />
       <CartDrawer />
 
@@ -66,12 +64,11 @@ const Index = () => {
           </div>
 
           <div className="mt-8 pt-8 border-t border-border text-center text-sm text-muted-foreground">
-            <p>© 2024 Tenga. All rights reserved.</p>
+            <p>© 2026 Tenga Virtual Mall.
+ All rights reserved.</p>
           </div>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
