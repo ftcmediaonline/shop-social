@@ -1,12 +1,20 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ShoppingBag, User, Menu, X, Heart, Sun, Moon } from 'lucide-react';
+import { Search, ShoppingBag, User, Menu, X, Heart, Sun, Moon, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCart } from '@/context/CartContext';
 import tengaLogo from '@/assets/tenga-logo.png';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -15,6 +23,7 @@ const Header = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const { totalItems, setIsCartOpen } = useCart();
   const { theme, toggleTheme } = useTheme();
+  const { user, signOut } = useAuth();
 
   const navLinks = [
     { name: 'Discover', href: '/discover' },
@@ -115,9 +124,29 @@ const Header = () => {
           </Button>
 
           {/* User */}
-          <Button variant="ghost" size="icon">
-            <User className="h-5 w-5" />
-          </Button>
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <User className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem className="text-xs text-muted-foreground" disabled>
+                  {user.email}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={signOut}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button variant="ghost" size="icon" onClick={() => navigate('/auth')}>
+              <User className="h-5 w-5" />
+            </Button>
+          )}
 
           {/* Mobile Menu Toggle */}
           <Button
