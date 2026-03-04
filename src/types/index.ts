@@ -12,6 +12,8 @@ export interface Shop {
   productCount: number;
   isVerified: boolean;
   location?: string;
+  contactEmail?: string;
+  contactPhone?: string;
 }
 
 export interface Product {

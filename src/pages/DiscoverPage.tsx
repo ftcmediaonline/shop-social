@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, Grid3X3, LayoutList } from 'lucide-react';
+import { Search, Grid3X3, LayoutList, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Header from '@/components/layout/Header';
@@ -9,31 +9,147 @@ import CartDrawer from '@/components/layout/CartDrawer';
 import Footer from '@/components/layout/Footer';
 import ProductCard from '@/components/product/ProductCard';
 import FilterSheet, { FilterState } from '@/components/filters/FilterSheet';
-import { products, categories, getShopById, shops } from '@/data/mockData';
+import { products as mockProducts, categories, getShopById } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
+import type { Product, Shop } from '@/types';
 import { cn } from '@/lib/utils';
+
+const PLACEHOLDER_IMAGE = 'https://placehold.co/600x600?text=Product';
+const PLACEHOLDER_LOGO = 'https://placehold.co/200x200?text=Shop';
+
+function mapDbProductToProduct(row: {
+  id: string;
+  shop_id: string;
+  name: string;
+  slug: string;
+  price: number;
+  original_price: number | null;
+  description: string | null;
+  in_stock: boolean | null;
+  stock_count: number | null;
+  rating: number | null;
+  review_count: number | null;
+  like_count: number | null;
+  created_at: string | null;
+  product_images?: { image_url: string }[];
+  shops?: { name: string; slug: string; logo: string | null; categories?: { name: string } | null } | null;
+}): Product {
+  const images = row.product_images?.length
+    ? row.product_images.map((i) => i.image_url)
+    : [PLACEHOLDER_IMAGE];
+  const categoryName = row.shops?.categories?.name ?? '';
+  return {
+    id: row.id,
+    shopId: row.shop_id,
+    name: row.name,
+    slug: row.slug,
+    price: row.price,
+    originalPrice: row.original_price ?? undefined,
+    images,
+    description: row.description ?? '',
+    category: categoryName,
+    inStock: row.in_stock ?? true,
+    stockCount: row.stock_count ?? undefined,
+    rating: row.rating ?? 0,
+    reviewCount: row.review_count ?? 0,
+    likeCount: row.like_count ?? 0,
+    createdAt: row.created_at ?? '',
+  };
+}
+
+function mapDbRowToShop(row: {
+  id: string;
+  name: string;
+  slug: string;
+  logo: string | null;
+  banner: string | null;
+  bio: string | null;
+  location: string | null;
+  categories?: { name: string } | null;
+}): Shop {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    logo: row.logo ?? PLACEHOLDER_LOGO,
+    banner: row.banner ?? 'https://placehold.co/1200x400?text=Shop',
+    bio: row.bio ?? '',
+    category: row.categories?.name ?? '—',
+    rating: 0,
+    reviewCount: 0,
+    followerCount: 0,
+    productCount: 0,
+    isVerified: true,
+    location: row.location ?? undefined,
+  };
+}
 
 const DiscoverPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  const qFromUrl = searchParams.get('q') || '';
+  const [searchQuery, setSearchQuery] = useState(qFromUrl);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  
-  // Get max price for filter
-  const maxPrice = useMemo(() => {
-    return Math.ceil(Math.max(...products.map(p => p.price)) / 100) * 100;
+  const [realProducts, setRealProducts] = useState<Product[]>([]);
+  const [realShopsMap, setRealShopsMap] = useState<Record<string, Shop>>({});
+  const [productsLoading, setProductsLoading] = useState(true);
+
+  // Sync search input from URL (e.g. when navigating from header or browser back)
+  useEffect(() => {
+    setSearchQuery(qFromUrl);
+  }, [qFromUrl]);
+
+  // Fetch real products from verified shops
+  useEffect(() => {
+    (async () => {
+      const { data: shopRows } = await supabase
+        .from('shops')
+        .select('id, name, slug, logo, banner, bio, location, categories(name)')
+        .eq('is_verified', true);
+      if (!shopRows?.length) {
+        setRealProducts([]);
+        setRealShopsMap({});
+        setProductsLoading(false);
+        return;
+      }
+      const shopIds = shopRows.map((s) => s.id);
+      const shopMap: Record<string, Shop> = {};
+      shopRows.forEach((r) => {
+        shopMap[r.id] = mapDbRowToShop(r);
+      });
+      setRealShopsMap(shopMap);
+      const { data: productRows } = await supabase
+        .from('products')
+        .select('*, product_images(image_url), shops(name, slug, logo, categories(name))')
+        .in('shop_id', shopIds);
+      const mapped = (productRows ?? []).map((row) => mapDbProductToProduct(row));
+      setRealProducts(mapped);
+      setProductsLoading(false);
+    })();
   }, []);
 
-  // Initialize filters from URL params
+  const allProducts = useMemo(
+    () => [...realProducts, ...mockProducts],
+    [realProducts]
+  );
+
+  const maxPrice = useMemo(() => {
+    if (allProducts.length === 0) return 1000;
+    const max = Math.max(...allProducts.map((p) => p.price));
+    return Math.ceil(max / 100) * 100;
+  }, [allProducts]);
+
+  const initialMaxPrice = useMemo(() => Math.ceil(Math.max(...mockProducts.map((p) => p.price), 0) / 100) * 100 || 1000, []);
+
   const [filters, setFilters] = useState<FilterState>(() => {
     const categoryFromUrl = searchParams.get('category');
     return {
       categories: categoryFromUrl ? [categoryFromUrl] : [],
       colors: [],
       sizes: [],
-      priceRange: [0, maxPrice],
+      priceRange: [0, initialMaxPrice],
     };
   });
 
-  // Update URL when search changes
   useEffect(() => {
     const params = new URLSearchParams();
     if (searchQuery) params.set('q', searchQuery);
@@ -41,41 +157,57 @@ const DiscoverPage = () => {
     setSearchParams(params, { replace: true });
   }, [searchQuery, filters.categories, setSearchParams]);
 
+  const getShopForProduct = (product: Product): Shop | undefined =>
+    realShopsMap[product.shopId] ?? getShopById(product.shopId) ?? undefined;
+
   const filteredProducts = useMemo(() => {
-    return products.filter(product => {
-      const shop = getShopById(product.shopId);
-      
-      // Search filter - match product name, category, or shop name
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = !searchQuery || 
-        product.name.toLowerCase().includes(searchLower) ||
-        product.description.toLowerCase().includes(searchLower) ||
-        product.category.toLowerCase().includes(searchLower) ||
-        (shop?.name.toLowerCase().includes(searchLower) ?? false);
-      
-      // Category filter
-      const matchesCategory = filters.categories.length === 0 || 
+    const searchTerms = searchQuery
+      .toLowerCase()
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    return allProducts.filter((product) => {
+      const shop = getShopForProduct(product);
+      const searchableText = [
+        product.name,
+        product.description,
+        product.category,
+        shop?.name ?? '',
+      ]
+        .join(' ')
+        .toLowerCase();
+      const matchesSearch =
+        searchTerms.length === 0 ||
+        searchTerms.every((term) => searchableText.includes(term));
+      const matchesCategory =
+        filters.categories.length === 0 ||
         filters.categories.includes(product.category);
-      
-      // Color filter - check if product has matching color variant
-      const matchesColor = filters.colors.length === 0 || 
-        (product.variants?.some(v => 
-          v.type === 'color' && v.options.some(opt => filters.colors.includes(opt))
+      const matchesColor =
+        filters.colors.length === 0 ||
+        (product.variants?.some(
+          (v) =>
+            v.type === 'color' &&
+            v.options.some((opt) => filters.colors.includes(opt))
         ) ?? false);
-      
-      // Size filter - check if product has matching size variant
-      const matchesSize = filters.sizes.length === 0 || 
-        (product.variants?.some(v => 
-          v.type === 'size' && v.options.some(opt => filters.sizes.includes(opt))
+      const matchesSize =
+        filters.sizes.length === 0 ||
+        (product.variants?.some(
+          (v) =>
+            v.type === 'size' &&
+            v.options.some((opt) => filters.sizes.includes(opt))
         ) ?? false);
-      
-      // Price filter
-      const matchesPrice = product.price >= filters.priceRange[0] && 
+      const matchesPrice =
+        product.price >= filters.priceRange[0] &&
         product.price <= filters.priceRange[1];
-      
-      return matchesSearch && matchesCategory && matchesColor && matchesSize && matchesPrice;
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesColor &&
+        matchesSize &&
+        matchesPrice
+      );
     });
-  }, [searchQuery, filters]);
+  }, [searchQuery, filters, allProducts, realShopsMap]);
 
   const handleCategoryClick = (categoryName: string | null) => {
     setFilters(prev => ({
@@ -120,10 +252,10 @@ const DiscoverPage = () => {
               className="pl-10 bg-secondary border-0"
             />
           </div>
-          <FilterSheet 
-            filters={filters} 
+          <FilterSheet
+            filters={filters}
             onFiltersChange={setFilters}
-            maxPrice={maxPrice}
+            maxPrice={Math.max(maxPrice, initialMaxPrice)}
           />
         </div>
 
@@ -181,7 +313,8 @@ const DiscoverPage = () => {
 
         {/* Results Header */}
         <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            {productsLoading && <Loader2 className="h-4 w-4 animate-spin" />}
             {filteredProducts.length} product{filteredProducts.length !== 1 && 's'}
             {searchQuery && ` for "${searchQuery}"`}
           </p>
@@ -215,15 +348,17 @@ const DiscoverPage = () => {
             <p className="text-muted-foreground mb-4">
               Try adjusting your search or filters
             </p>
-            <Button onClick={() => { 
-              setSearchQuery(''); 
-              setFilters({
-                categories: [],
-                colors: [],
-                sizes: [],
-                priceRange: [0, maxPrice],
-              }); 
-            }}>
+            <Button
+              onClick={() => {
+                setSearchQuery('');
+                setFilters({
+                  categories: [],
+                  colors: [],
+                  sizes: [],
+                  priceRange: [0, Math.max(maxPrice, initialMaxPrice)],
+                });
+              }}
+            >
               Clear Filters
             </Button>
           </div>
@@ -238,7 +373,7 @@ const DiscoverPage = () => {
               <ProductCard
                 key={product.id}
                 product={product}
-                shop={getShopById(product.shopId)}
+                shop={getShopForProduct(product)}
                 index={index}
               />
             ))}

@@ -29,6 +29,8 @@ import {
   Store,
   Settings,
   ShoppingCart,
+  Phone,
+  Mail,
 } from 'lucide-react';
 
 type Shop = Tables<'shops'>;
@@ -72,6 +74,9 @@ const SellerDashboardPage = () => {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [customerByUserId, setCustomerByUserId] = useState<Record<string, CustomerProfile>>({});
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [savingContact, setSavingContact] = useState(false);
 
   const handleMarkDelivered = async (orderId: string) => {
     setUpdatingOrderId(orderId);
@@ -80,6 +85,26 @@ const SellerDashboardPage = () => {
       prev.map((o) => (o.id === orderId ? { ...o, status: 'delivered' } : o))
     );
     setUpdatingOrderId(null);
+  };
+
+  const handleSaveContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!shop) return;
+    setSavingContact(true);
+    const { error } = await supabase
+      .from('shops')
+      .update({
+        contact_email: contactEmail.trim() || null,
+        contact_phone: contactPhone.trim() || null,
+      } as Record<string, unknown>)
+      .eq('id', shop.id);
+    setSavingContact(false);
+    if (error) {
+      toast({ title: 'Could not save contact info', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setShop((prev) => prev ? { ...prev, contact_email: contactEmail.trim() || null, contact_phone: contactPhone.trim() || null } as Shop : null);
+    toast({ title: 'Contact info saved', description: 'Call and email buttons will now show on your shop page.' });
   };
 
   useEffect(() => {
@@ -337,6 +362,48 @@ const SellerDashboardPage = () => {
             </Button>
           </div>
         </div>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Phone className="h-4 w-4" />
+              <Mail className="h-4 w-4" />
+              Shop contact (Call & Email on your shop page)
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              These appear as call and email buttons on your public shop page. Add them so customers can reach you.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSaveContact} className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="contact_email">Email</Label>
+                <Input
+                  id="contact_email"
+                  type="email"
+                  placeholder="shop@example.com"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                />
+              </div>
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="contact_phone">Phone</Label>
+                <Input
+                  id="contact_phone"
+                  type="tel"
+                  placeholder="+263 77 123 4567"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button type="submit" disabled={savingContact}>
+                  {savingContact ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
 
         <Tabs defaultValue="products" className="space-y-6">
           <TabsList className="grid w-full max-w-2xl grid-cols-3">

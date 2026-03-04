@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
-  BadgeCheck, MapPin, Star, Grid3X3, Share2, MessageCircle, ChevronLeft, Loader2 
+  BadgeCheck, MapPin, Star, Grid3X3, Share2, Phone, Mail, ChevronLeft, Loader2 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -34,6 +34,8 @@ function mapDbShopToShop(row: {
   review_count: number | null;
   follower_count: number | null;
   product_count: number | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
   categories?: { name: string } | null;
 }): Shop {
   return {
@@ -50,6 +52,8 @@ function mapDbShopToShop(row: {
     productCount: row.product_count ?? 0,
     isVerified: row.is_verified ?? false,
     location: row.location ?? undefined,
+    contactEmail: row.contact_email ?? undefined,
+    contactPhone: row.contact_phone ?? undefined,
   };
 }
 
@@ -351,9 +355,20 @@ const ShopPage = () => {
                   >
                     {isFollowing ? 'Following' : 'Follow'}
                   </Button>
-                  <Button variant="outline" size="icon">
-                    <MessageCircle className="h-4 w-4" />
-                  </Button>
+                  {shop.contactPhone && (
+                    <Button variant="outline" size="icon" title={`Call ${shop.name}`} asChild>
+                      <a href={`tel:${shop.contactPhone.replace(/\s/g, '')}`}>
+                        <Phone className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  )}
+                  {shop.contactEmail && (
+                    <Button variant="outline" size="icon" title={`Email ${shop.name}`} asChild>
+                      <a href={`mailto:${shop.contactEmail}`}>
+                        <Mail className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  )}
                   <Button variant="outline" size="icon" onClick={handleShare} title="Share shop link">
                     <Share2 className="h-4 w-4" />
                   </Button>

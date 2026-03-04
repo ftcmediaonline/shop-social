@@ -180,6 +180,8 @@ const OpenShopPage = () => {
         review_count: null,
         follower_count: null,
         product_count: null,
+        contact_email: email.trim() || null,
+        contact_phone: phone.trim() || null,
       });
 
       if (error) {
