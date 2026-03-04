@@ -2,51 +2,184 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  ChevronLeft, Heart, ShoppingBag, Star, Minus, Plus,
-  Share2, Truck, Shield, RotateCcw
+  Heart, ShoppingBag, Star, Minus, Plus,
+  Share2, Truck, Shield, RotateCcw, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/layout/Header';
 import CartDrawer from '@/components/layout/CartDrawer';
 import Footer from '@/components/layout/Footer';
 import ProductCard from '@/components/product/ProductCard';
-import { products, getShopById, getProductsByShopId } from '@/data/mockData';
+import { products as mockProducts, getShopById, getProductsByShopId } from '@/data/mockData';
 import { getReviewsByProductId } from '@/data/reviewsData';
 import { useCart } from '@/context/CartContext';
+import { supabase } from '@/integrations/supabase/client';
+import type { Product, Shop, Review } from '@/types';
 import { cn } from '@/lib/utils';
+
+const PLACEHOLDER_IMAGE = 'https://placehold.co/600x600?text=Product';
+const PLACEHOLDER_LOGO = 'https://placehold.co/200x200?text=Shop';
+
+function mapDbProductToProduct(row: {
+  id: string;
+  shop_id: string;
+  name: string;
+  slug: string;
+  price: number;
+  original_price: number | null;
+  description: string | null;
+  in_stock: boolean | null;
+  stock_count: number | null;
+  rating: number | null;
+  review_count: number | null;
+  like_count: number | null;
+  created_at: string | null;
+  product_images?: { image_url: string }[];
+}): Product {
+  const images = row.product_images?.length
+    ? row.product_images.map((i) => i.image_url)
+    : [PLACEHOLDER_IMAGE];
+  return {
+    id: row.id,
+    shopId: row.shop_id,
+    name: row.name,
+    slug: row.slug,
+    price: row.price,
+    originalPrice: row.original_price ?? undefined,
+    images,
+    description: row.description ?? '',
+    category: '',
+    inStock: row.in_stock ?? true,
+    stockCount: row.stock_count ?? undefined,
+    rating: row.rating ?? 0,
+    reviewCount: row.review_count ?? 0,
+    likeCount: row.like_count ?? 0,
+    createdAt: row.created_at ?? '',
+  };
+}
+
+function mapDbShopToShop(row: {
+  id: string;
+  name: string;
+  slug: string;
+  logo: string | null;
+  banner: string | null;
+  bio: string | null;
+  location: string | null;
+  categories?: { name: string } | null;
+}): Shop {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    logo: row.logo ?? PLACEHOLDER_LOGO,
+    banner: row.banner ?? 'https://placehold.co/1200x400?text=Shop',
+    bio: row.bio ?? '',
+    category: row.categories?.name ?? '—',
+    rating: 0,
+    reviewCount: 0,
+    followerCount: 0,
+    productCount: 0,
+    isVerified: true,
+    location: row.location ?? undefined,
+  };
+}
 
 const ProductPage = () => {
   const { slug } = useParams();
   const { addToCart } = useCart();
-
-  const product = products.find(p => p.slug === slug);
-  const shop = product ? getShopById(product.shopId) : null;
-  const relatedProducts = shop
-    ? getProductsByShopId(shop.id).filter(p => p.id !== product?.id).slice(0, 4)
-    : [];
-  const reviews = product ? getReviewsByProductId(product.id) : [];
+  const [product, setProduct] = useState<Product | null>(null);
+  const [shop, setShop] = useState<Shop | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [isLiked, setIsLiked] = useState(false);
 
-  // Handle color variant image sync
+  useEffect(() => {
+    if (!slug) {
+      setLoading(false);
+      return;
+    }
+    (async () => {
+      const { data: productRow } = await supabase
+        .from('products')
+        .select('*, product_images(image_url)')
+        .eq('slug', slug)
+        .maybeSingle();
+
+      if (productRow) {
+        setProduct(mapDbProductToProduct(productRow));
+        const { data: shopRow } = await supabase
+          .from('shops')
+          .select('*, categories(name)')
+          .eq('id', productRow.shop_id)
+          .single();
+        if (shopRow) setShop(mapDbShopToShop(shopRow));
+        const { data: relatedRows } = await supabase
+          .from('products')
+          .select('*, product_images(image_url)')
+          .eq('shop_id', productRow.shop_id)
+          .neq('id', productRow.id)
+          .limit(4);
+        setRelatedProducts((relatedRows ?? []).map(mapDbProductToProduct));
+        const { data: reviewRows } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('product_id', productRow.id)
+          .order('created_at', { ascending: false });
+        setReviews(
+          (reviewRows ?? []).map((r) => ({
+            id: r.id,
+            productId: r.product_id ?? '',
+            userId: r.user_id ?? '',
+            userName: 'Customer',
+            userAvatar: '',
+            rating: r.rating ?? 0,
+            comment: r.comment ?? '',
+            createdAt: r.created_at ?? '',
+          }))
+        );
+      } else {
+        const mockProduct = mockProducts.find((p) => p.slug === slug);
+        const mockShop = mockProduct ? getShopById(mockProduct.shopId) : null;
+        setProduct(mockProduct ?? null);
+        setShop(mockShop);
+        setRelatedProducts(
+          mockProduct && mockShop
+            ? getProductsByShopId(mockShop.id).filter((p) => p.id !== mockProduct.id).slice(0, 4)
+            : []
+        );
+        setReviews(mockProduct ? getReviewsByProductId(mockProduct.id) : []);
+      }
+      setLoading(false);
+    })();
+  }, [slug]);
+
   useEffect(() => {
     if (product && selectedVariants['Color'] && product.colorImages) {
       const colorImage = product.colorImages[selectedVariants['Color']];
       if (colorImage) {
-        // Find the index of the color image in the images array, or use as new image
         const imageIndex = product.images.findIndex(img => img === colorImage);
-        if (imageIndex >= 0) {
-          setSelectedImage(imageIndex);
-        } else {
-          // Color image not in main images, set to first position conceptually
-          setSelectedImage(0);
-        }
+        if (imageIndex >= 0) setSelectedImage(imageIndex);
+        else setSelectedImage(0);
       }
     }
   }, [selectedVariants, product]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container py-20 flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   if (!product || !shop) {
     return (
@@ -67,7 +200,7 @@ const ProductPage = () => {
     : null;
 
   const handleAddToCart = () => {
-    addToCart(product, quantity, selectedVariants);
+    addToCart(product, quantity, selectedVariants, shop);
   };
 
   const handleVariantSelect = (variantName: string, option: string) => {
@@ -375,8 +508,8 @@ const ProductPage = () => {
           <section className="mt-16">
             <h2 className="text-xl font-bold mb-6">More from {shop.name}</h2>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {relatedProducts.map((product, index) => (
-                <ProductCard key={product.id} product={product} index={index} />
+              {relatedProducts.map((p, index) => (
+                <ProductCard key={p.id} product={p} shop={shop} index={index} />
               ))}
             </div>
           </section>

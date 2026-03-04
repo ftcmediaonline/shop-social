@@ -1,61 +1,577 @@
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { BarChart3, Package, ShoppingCart, TrendingUp, Settings, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
+import {
+  Package,
+  Plus,
+  Star,
+  MessageSquare,
+  Loader2,
+  Store,
+  Settings,
+  ShoppingCart,
+} from 'lucide-react';
 
-const stats = [
-  { label: "Total Sales", value: "$0", icon: TrendingUp },
-  { label: "Orders", value: "0", icon: ShoppingCart },
-  { label: "Products", value: "0", icon: Package },
-  { label: "Views", value: "0", icon: BarChart3 },
-];
+type Shop = Tables<'shops'>;
+type Product = Tables<'products'>;
+type Review = Tables<'reviews'> & { products?: { name: string } | null };
+type OrderRow = Tables<'orders'> & {
+  order_items?: (Tables<'order_items'> & { products?: { name: string } | null })[];
+};
+
+function slugFromName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+}
 
 const SellerDashboardPage = () => {
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const [shop, setShop] = useState<Shop | null>(null);
+  const [shopLoading, setShopLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addName, setAddName] = useState('');
+  const [addPrice, setAddPrice] = useState('');
+  const [addDescription, setAddDescription] = useState('');
+  const [addImageFile, setAddImageFile] = useState<File | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setShopLoading(false);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from('shops')
+        .select('*')
+        .eq('owner_id', user.id)
+        .maybeSingle();
+      setShop(data ?? null);
+      setShopLoading(false);
+    })();
+  }, [user]);
+
+  useEffect(() => {
+    if (!shop) return;
+    setProductsLoading(true);
+    supabase
+      .from('products')
+      .select('*')
+      .eq('shop_id', shop.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        setProducts(data ?? []);
+        setProductsLoading(false);
+      });
+  }, [shop]);
+
+  useEffect(() => {
+    if (!shop) return;
+    setReviewsLoading(true);
+    supabase
+      .from('products')
+      .select('id')
+      .eq('shop_id', shop.id)
+      .then(({ data: prods }) => {
+        const ids = (prods ?? []).map((p) => p.id);
+        if (ids.length === 0) {
+          setReviews([]);
+          setReviewsLoading(false);
+          return;
+        }
+        supabase
+          .from('reviews')
+          .select('*, products(name)')
+          .in('product_id', ids)
+          .order('created_at', { ascending: false })
+          .then(({ data }) => {
+            setReviews((data ?? []) as Review[]);
+            setReviewsLoading(false);
+          });
+      });
+  }, [shop]);
+
+  useEffect(() => {
+    if (!shop) return;
+    setOrdersLoading(true);
+    supabase
+      .from('orders')
+      .select('*, order_items(*, products(name))')
+      .eq('shop_id', shop.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        setOrders((data ?? []) as OrderRow[]);
+        setOrdersLoading(false);
+      });
+  }, [shop]);
+
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!shop || !user) return;
+    setAddError(null);
+    const name = addName.trim();
+    const price = parseFloat(addPrice);
+    if (!name || isNaN(price) || price < 0) {
+      setAddError('Name and a valid price are required.');
+      return;
+    }
+    if (!addImageFile) {
+      setAddError('Please add a product image.');
+      return;
+    }
+    setAdding(true);
+    try {
+      const slug = slugFromName(name) || 'product-' + Date.now();
+      const { data: product, error: insertErr } = await supabase
+        .from('products')
+        .insert({
+          shop_id: shop.id,
+          name,
+          slug,
+          price,
+          description: addDescription.trim() || null,
+          in_stock: true,
+          stock_count: null,
+          rating: null,
+          review_count: null,
+          like_count: null,
+        })
+        .select('id')
+        .single();
+      if (insertErr) {
+        setAddError(insertErr.message);
+        setAdding(false);
+        return;
+      }
+      const ext = addImageFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `products/${shop.id}/${product.id}/${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('shop-assets')
+        .upload(path, addImageFile, { cacheControl: '3600', upsert: false });
+      if (uploadErr) {
+        setAddError('Product created but image upload failed: ' + uploadErr.message);
+        setAdding(false);
+        return;
+      }
+      const { data: urlData } = supabase.storage.from('shop-assets').getPublicUrl(path);
+      await supabase.from('product_images').insert({
+        product_id: product.id,
+        image_url: urlData.publicUrl,
+      });
+      const { data: updated } = await supabase
+        .from('products')
+        .select('*')
+        .eq('shop_id', shop.id)
+        .order('created_at', { ascending: false });
+      setProducts(updated ?? []);
+      setAddOpen(false);
+      setAddName('');
+      setAddPrice('');
+      setAddDescription('');
+      setAddImageFile(null);
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'Something went wrong.');
+    }
+    setAdding(false);
+  };
+
+  const handleReply = async (reviewId: string) => {
+    const text = replyDraft[reviewId]?.trim();
+    if (!text) return;
+    setReplyingId(reviewId);
+    const { error } = await supabase
+      .from('reviews')
+      .update({ owner_reply: text, owner_replied_at: new Date().toISOString() })
+      .eq('id', reviewId);
+    setReplyingId(null);
+    if (!error) {
+      setReplyDraft((prev) => ({ ...prev, [reviewId]: '' }));
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.id === reviewId
+            ? { ...r, owner_reply: text, owner_replied_at: new Date().toISOString() }
+            : r
+        )
+      );
+    }
+  };
+
+  if (authLoading || shopLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 container py-12 flex justify-center items-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!user) {
+    navigate('/auth', { replace: true });
+    return null;
+  }
+
+  if (!shop) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 container py-12 text-center">
+          <Store className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h1 className="text-2xl font-bold mb-2">No shop yet</h1>
+          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+            Open a shop to start selling and managing products and reviews.
+          </p>
+          <Button asChild>
+            <Link to="/open-shop">Open a shop</Link>
+          </Button>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 container py-12">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold">Seller Dashboard</h1>
-            <p className="text-muted-foreground">Manage your shop and track performance.</p>
+            <h1 className="text-3xl font-bold">{shop.name}</h1>
+            <p className="text-muted-foreground mt-1">Manage your products and reply to reviews.</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link to="/open-shop"><Settings className="h-4 w-4 mr-1" /> Shop Settings</Link>
-            </Button>
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-1" /> Add Product
+              <Link to={`/shop/${shop.slug}`}>
+                <Store className="h-4 w-4 mr-1" />
+                View shop
+              </Link>
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          {stats.map((s) => (
-            <Card key={s.label}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{s.label}</CardTitle>
-                <s.icon className="h-4 w-4 text-muted-foreground" />
+        <Tabs defaultValue="products" className="space-y-6">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3">
+            <TabsTrigger value="products" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Products
+            </TabsTrigger>
+            <TabsTrigger value="orders" className="flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4" />
+              Orders
+            </TabsTrigger>
+            <TabsTrigger value="reviews" className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Reviews
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="products" className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Your products</CardTitle>
+                <Dialog open={addOpen} onOpenChange={setAddOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add product
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add product</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleAddProduct} className="space-y-4">
+                      {addError && (
+                        <p className="text-sm text-destructive">{addError}</p>
+                      )}
+                      <div>
+                        <Label htmlFor="name">Product name *</Label>
+                        <Input
+                          id="name"
+                          value={addName}
+                          onChange={(e) => setAddName(e.target.value)}
+                          placeholder="e.g. Blue Running Shoes"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="price">Price *</Label>
+                        <Input
+                          id="price"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={addPrice}
+                          onChange={(e) => setAddPrice(e.target.value)}
+                          placeholder="0.00"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea
+                          id="description"
+                          value={addDescription}
+                          onChange={(e) => setAddDescription(e.target.value)}
+                          placeholder="Describe your product..."
+                          rows={3}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label>Product image *</Label>
+                        <div className="mt-1 flex items-center gap-2">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setAddImageFile(e.target.files?.[0] ?? null)}
+                          />
+                          {addImageFile && (
+                            <span className="text-xs text-muted-foreground truncate max-w-[120px]">
+                              {addImageFile.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2 pt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setAddOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={adding}>
+                          {adding ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            'Add product'
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold">{s.value}</p>
+                {productsLoading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : products.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-12">
+                    No products yet. Add your first product to start selling.
+                  </p>
+                ) : (
+                  <ul className="space-y-3">
+                    {products.map((p) => (
+                      <li
+                        key={p.id}
+                        className="flex items-center justify-between rounded-lg border border-border p-3"
+                      >
+                        <div>
+                          <p className="font-medium">{p.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            ${Number(p.price).toFixed(2)}
+                            {p.description && ` · ${p.description.slice(0, 50)}${p.description.length > 50 ? '…' : ''}`}
+                          </p>
+                        </div>
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link to={`/product/${p.slug}`} target="_blank" rel="noopener noreferrer">
+                            View
+                          </Link>
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
-          ))}
-        </div>
+          </TabsContent>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Orders</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground text-sm py-8 text-center">
-              No orders yet. Once customers start buying your products, they'll appear here.
-            </p>
-          </CardContent>
-        </Card>
+          <TabsContent value="orders" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Orders</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Orders from customers for your store.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {ordersLoading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : orders.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-12">
+                    No orders yet. Orders will appear here when customers buy your products.
+                  </p>
+                ) : (
+                  <ul className="space-y-4">
+                    {orders.map((order) => (
+                      <li
+                        key={order.id}
+                        className="rounded-lg border border-border p-4 space-y-2"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-xs font-mono text-muted-foreground">
+                            #{order.id.slice(0, 8)}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            {order.created_at
+                              ? new Date(order.created_at).toLocaleString()
+                              : '—'}
+                          </span>
+                          <span
+                            className={cn(
+                              'rounded-full px-2 py-0.5 text-xs font-medium',
+                              order.status === 'delivered'
+                                ? 'bg-green-500/20 text-green-700 dark:text-green-400'
+                                : order.status === 'cancelled'
+                                  ? 'bg-destructive/20 text-destructive'
+                                  : 'bg-primary/20 text-primary'
+                            )}
+                          >
+                            {order.status ?? 'pending'}
+                          </span>
+                        </div>
+                        <p className="font-semibold">${Number(order.total).toFixed(2)} total</p>
+                        {order.order_items && order.order_items.length > 0 && (
+                          <ul className="mt-2 space-y-1 text-sm text-muted-foreground border-t border-border pt-2">
+                            {order.order_items.map((oi) => (
+                              <li key={oi.id} className="flex justify-between">
+                                <span>
+                                  {oi.products?.name ?? 'Product'} × {oi.quantity}
+                                </span>
+                                <span>${Number(oi.price * oi.quantity).toFixed(2)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="reviews" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Customer reviews</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Reply to reviews for your products.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {reviewsLoading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : reviews.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-12">
+                    No reviews yet. Reviews will appear here when customers leave them on your products.
+                  </p>
+                ) : (
+                  <ul className="space-y-4">
+                    {reviews.map((r) => (
+                      <li
+                        key={r.id}
+                        className="rounded-lg border border-border p-4 space-y-2"
+                      >
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            {r.products?.name ?? 'Product'}
+                          </span>
+                          <span>·</span>
+                          <span className="flex items-center gap-1">
+                            <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                            {r.rating ?? '—'}
+                          </span>
+                          <span>·</span>
+                          <span>
+                            {r.created_at
+                              ? new Date(r.created_at).toLocaleDateString()
+                              : ''}
+                          </span>
+                        </div>
+                        <p className="text-foreground">{r.comment || 'No comment'}</p>
+                        {r.owner_reply ? (
+                          <div className="rounded-md bg-muted/50 p-3 text-sm">
+                            <p className="font-medium text-muted-foreground mb-1">Your reply</p>
+                            <p>{r.owner_reply}</p>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 items-end">
+                            <div className="flex-1">
+                              <Label htmlFor={`reply-${r.id}`} className="sr-only">
+                                Reply
+                              </Label>
+                              <Textarea
+                                id={`reply-${r.id}`}
+                                placeholder="Write a reply..."
+                                value={replyDraft[r.id] ?? ''}
+                                onChange={(e) =>
+                                  setReplyDraft((prev) => ({ ...prev, [r.id]: e.target.value }))
+                                }
+                                rows={2}
+                                className="resize-none"
+                              />
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => handleReply(r.id)}
+                              disabled={!replyDraft[r.id]?.trim() || replyingId === r.id}
+                            >
+                              {replyingId === r.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                'Reply'
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
       <Footer />
     </div>

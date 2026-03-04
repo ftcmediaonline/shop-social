@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ShoppingBag, User, Menu, X, Heart, Sun, Moon, LogOut } from 'lucide-react';
+import { Search, ShoppingBag, User, Menu, X, Heart, Sun, Moon, LogOut, Shield, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCart } from '@/context/CartContext';
 import tengaLogo from '@/assets/tenga-logo.png';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,9 +22,23 @@ const Header = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
   const { totalItems, setIsCartOpen } = useCart();
   const { theme, toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
+
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+    supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => setIsAdmin(data?.role === 'admin'));
+  }, [user]);
 
   const navLinks = [
     { name: 'Discover', href: '/discover' },
@@ -66,6 +81,15 @@ const Header = () => {
               {link.name}
             </Link>
           ))}
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className="px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground flex items-center gap-1.5"
+            >
+              <Shield className="h-4 w-4" />
+              Admin
+            </Link>
+          )}
         </nav>
 
         {/* Search Bar - Desktop */}
@@ -136,6 +160,12 @@ const Header = () => {
                   {user.email}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/seller-dashboard">
+                    <Store className="h-4 w-4 mr-2" />
+                    Seller dashboard
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={signOut}>
                   <LogOut className="h-4 w-4 mr-2" />
                   Sign out
@@ -205,6 +235,16 @@ const Header = () => {
                   {link.name}
                 </Link>
               ))}
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className="px-4 py-3 text-base font-medium text-foreground rounded-lg hover:bg-secondary transition-colors flex items-center gap-2"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Shield className="h-4 w-4" />
+                  Admin
+                </Link>
+              )}
             </nav>
           </motion.div>
         )}

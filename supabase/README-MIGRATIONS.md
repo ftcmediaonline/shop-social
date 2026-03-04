@@ -5,6 +5,7 @@ Your Supabase database changes live in **`supabase/migrations/`**. To apply them
 **Migrations included:**
 - **Seed categories** (`20260303000000_seed_categories.sql`) – inserts the 8 categories for the Open Shop form.
 - **Storage policies for shop-assets** (`20260303100000_storage_shop_assets_policies.sql`) – lets authenticated users upload logos/banners and allows public read. Create the bucket first: Storage → New bucket → name `shop-assets`, Public: ON, then run this migration.
+- **Admin role and policies** (`20260303200000_admin_role_and_policies.sql`) – adds `role` to `profiles` (default `'user'`) and lets users with `role = 'admin'` approve shops. After running it, set an admin in SQL Editor: `UPDATE public.profiles SET role = 'admin' WHERE id = 'YOUR_AUTH_USER_UUID';` (get the UUID from Dashboard → Authentication → Users).
 
 ---
 

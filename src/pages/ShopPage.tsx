@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
-  BadgeCheck, MapPin, Star, Users, Grid3X3, Heart, 
-  Share2, MessageCircle, ChevronLeft 
+  BadgeCheck, MapPin, Star, Grid3X3, Share2, MessageCircle, ChevronLeft, Loader2 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,14 +10,131 @@ import ProductCard from '@/components/product/ProductCard';
 import Header from '@/components/layout/Header';
 import CartDrawer from '@/components/layout/CartDrawer';
 import Footer from '@/components/layout/Footer';
-import { shops, getProductsByShopId } from '@/data/mockData';
+import { shops as mockShops, getProductsByShopId } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
+import type { Shop, Product } from '@/types';
+
+const PLACEHOLDER_LOGO = 'https://placehold.co/200x200?text=Shop';
+const PLACEHOLDER_BANNER = 'https://placehold.co/1200x400?text=Shop';
+const PLACEHOLDER_PRODUCT = 'https://placehold.co/600x600?text=Product';
+
+function mapDbShopToShop(row: {
+  id: string;
+  name: string;
+  slug: string;
+  logo: string | null;
+  banner: string | null;
+  bio: string | null;
+  category_id: string | null;
+  location: string | null;
+  is_verified: boolean | null;
+  rating: number | null;
+  review_count: number | null;
+  follower_count: number | null;
+  product_count: number | null;
+  categories?: { name: string } | null;
+}): Shop {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    logo: row.logo ?? PLACEHOLDER_LOGO,
+    banner: row.banner ?? PLACEHOLDER_BANNER,
+    bio: row.bio ?? '',
+    category: row.categories?.name ?? '—',
+    rating: row.rating ?? 0,
+    reviewCount: row.review_count ?? 0,
+    followerCount: row.follower_count ?? 0,
+    productCount: row.product_count ?? 0,
+    isVerified: row.is_verified ?? false,
+    location: row.location ?? undefined,
+  };
+}
+
+function mapDbProductToProduct(row: {
+  id: string;
+  shop_id: string;
+  name: string;
+  slug: string;
+  price: number;
+  original_price: number | null;
+  description: string | null;
+  in_stock: boolean | null;
+  stock_count: number | null;
+  rating: number | null;
+  review_count: number | null;
+  like_count: number | null;
+  created_at: string | null;
+  product_images?: { image_url: string }[];
+}): Product {
+  const images = row.product_images?.length
+    ? row.product_images.map((i) => i.image_url)
+    : [PLACEHOLDER_PRODUCT];
+  return {
+    id: row.id,
+    shopId: row.shop_id,
+    name: row.name,
+    slug: row.slug,
+    price: row.price,
+    originalPrice: row.original_price ?? undefined,
+    images,
+    description: row.description ?? '',
+    category: '',
+    inStock: row.in_stock ?? true,
+    stockCount: row.stock_count ?? undefined,
+    rating: row.rating ?? 0,
+    reviewCount: row.review_count ?? 0,
+    likeCount: row.like_count ?? 0,
+    createdAt: row.created_at ?? '',
+  };
+}
 
 const ShopPage = () => {
   const { slug } = useParams();
   const [isFollowing, setIsFollowing] = useState(false);
+  const [shop, setShop] = useState<Shop | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const shop = shops.find(s => s.slug === slug);
-  const products = shop ? getProductsByShopId(shop.id) : [];
+  useEffect(() => {
+    if (!slug) {
+      setLoading(false);
+      return;
+    }
+    (async () => {
+      const { data: shopRow } = await supabase
+        .from('shops')
+        .select('*, categories(name)')
+        .eq('slug', slug)
+        .eq('is_verified', true)
+        .maybeSingle();
+
+      if (shopRow) {
+        setShop(mapDbShopToShop(shopRow));
+        const { data: productRows } = await supabase
+          .from('products')
+          .select('*, product_images(image_url)')
+          .eq('shop_id', shopRow.id);
+        setProducts((productRows ?? []).map(mapDbProductToProduct));
+      } else {
+        const mockShop = mockShops.find((s) => s.slug === slug);
+        setShop(mockShop ?? null);
+        setProducts(mockShop ? getProductsByShopId(mockShop.id) : []);
+      }
+      setLoading(false);
+    })();
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container py-20 flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   if (!shop) {
     return (
@@ -195,9 +311,9 @@ const ShopPage = () => {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                {products.map((product, index) => (
-                  <ProductCard key={product.id} product={product} index={index} />
-                ))}
+{products.map((product, index) => (
+                <ProductCard key={product.id} product={product} shop={shop} index={index} />
+              ))}
               </div>
             )}
           </TabsContent>

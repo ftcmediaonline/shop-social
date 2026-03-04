@@ -295,28 +295,34 @@ export type Database = {
       profiles: {
         Row: {
           id: string
+          user_id: string | null
           username: string
           full_name: string | null
           avatar_url: string | null
           bio: string | null
+          role: string | null
           created_at: string | null
           updated_at: string | null
         }
         Insert: {
-          id: string
+          id?: string
+          user_id?: string | null
           username: string
           full_name?: string | null
           avatar_url?: string | null
           bio?: string | null
+          role?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
         Update: {
           id?: string
+          user_id?: string | null
           username?: string
           full_name?: string | null
           avatar_url?: string | null
           bio?: string | null
+          role?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -354,6 +360,8 @@ export type Database = {
           user_id: string | null
           rating: number | null
           comment: string | null
+          owner_reply: string | null
+          owner_replied_at: string | null
           created_at: string | null
         }
         Insert: {
@@ -362,6 +370,8 @@ export type Database = {
           user_id?: string | null
           rating?: number | null
           comment?: string | null
+          owner_reply?: string | null
+          owner_replied_at?: string | null
           created_at?: string | null
         }
         Update: {
@@ -370,6 +380,8 @@ export type Database = {
           user_id?: string | null
           rating?: number | null
           comment?: string | null
+          owner_reply?: string | null
+          owner_replied_at?: string | null
           created_at?: string | null
         }
         Relationships: [

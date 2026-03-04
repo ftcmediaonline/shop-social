@@ -1,28 +1,97 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { Search, SlidersHorizontal, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Header from '@/components/layout/Header';
 import CartDrawer from '@/components/layout/CartDrawer';
 import Footer from '@/components/layout/Footer';
 import ShopCard from '@/components/shop/ShopCard';
-import { shops, categories } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
+import { shops as mockShops } from '@/data/mockData';
+import type { Shop } from '@/types';
 import { cn } from '@/lib/utils';
+
+const PLACEHOLDER_LOGO = 'https://placehold.co/200x200?text=Shop';
+const PLACEHOLDER_BANNER = 'https://placehold.co/1200x400?text=Shop';
+
+function mapDbShopToShop(row: {
+  id: string;
+  name: string;
+  slug: string;
+  logo: string | null;
+  banner: string | null;
+  bio: string | null;
+  category_id: string | null;
+  location: string | null;
+  is_verified: boolean | null;
+  rating: number | null;
+  review_count: number | null;
+  follower_count: number | null;
+  product_count: number | null;
+  categories?: { name: string } | null;
+}): Shop {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    logo: row.logo ?? PLACEHOLDER_LOGO,
+    banner: row.banner ?? PLACEHOLDER_BANNER,
+    bio: row.bio ?? '',
+    category: row.categories?.name ?? '—',
+    rating: row.rating ?? 0,
+    reviewCount: row.review_count ?? 0,
+    followerCount: row.follower_count ?? 0,
+    productCount: row.product_count ?? 0,
+    isVerified: row.is_verified ?? false,
+    location: row.location ?? undefined,
+  };
+}
 
 const ShopsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data: shopRows, error } = await supabase
+        .from('shops')
+        .select('*, categories(name)')
+        .eq('is_verified', true)
+        .order('created_at', { ascending: false });
+      if (error || !shopRows) {
+        setShops([...mockShops]);
+        setLoading(false);
+        return;
+      }
+      // Get real product counts per shop (shops.product_count is not auto-updated)
+      const { data: productRows } = await supabase.from('products').select('shop_id');
+      const countByShop: Record<string, number> = {};
+      (productRows ?? []).forEach((p) => {
+        countByShop[p.shop_id] = (countByShop[p.shop_id] ?? 0) + 1;
+      });
+      const approvedShops: Shop[] = shopRows.map((row) => {
+        const mapped = mapDbShopToShop(row);
+        mapped.productCount = countByShop[row.id] ?? 0;
+        return mapped;
+      });
+      setShops([...approvedShops, ...mockShops]);
+      setLoading(false);
+    })();
+  }, []);
 
   const filteredShops = shops.filter(shop => {
-    const matchesSearch = shop.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      shop.bio.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = searchQuery.trim() === '' ||
+      shop.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (shop.bio && shop.bio.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCategory = !selectedCategory || shop.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const uniqueCategories = [...new Set(shops.map(shop => shop.category))];
+  const uniqueCategories = [...new Set(shops.map(shop => shop.category).filter(Boolean))];
 
   return (
     <div className="min-h-screen bg-background">
@@ -111,18 +180,26 @@ const ShopsPage = () => {
         </motion.div>
 
         {/* Results */}
-        {filteredShops.length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : filteredShops.length === 0 ? (
           <div className="text-center py-16">
             <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-secondary mb-4">
               <Search className="h-8 w-8 text-muted-foreground" />
             </div>
             <h3 className="text-lg font-medium mb-2">No shops found</h3>
             <p className="text-muted-foreground mb-4">
-              Try adjusting your search or filters
+              {shops.length === 0
+                ? 'No approved shops yet. Check back later.'
+                : 'Try adjusting your search or filters'}
             </p>
-            <Button onClick={() => { setSearchQuery(''); setSelectedCategory(null); }}>
-              Clear Filters
-            </Button>
+            {shops.length > 0 && (
+              <Button onClick={() => { setSearchQuery(''); setSelectedCategory(null); }}>
+                Clear Filters
+              </Button>
+            )}
           </div>
         ) : (
           <>

@@ -39,7 +39,6 @@ const OpenShopPage = () => {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [emailSendFailed, setEmailSendFailed] = useState(false);
 
   // Form state
   const [shopName, setShopName] = useState('');
@@ -190,11 +189,9 @@ const OpenShopPage = () => {
       }
 
       // Send confirmation email via Edge Function (Resend)
-      const { data: emailData, error: emailError } = await supabase.functions.invoke('send-shop-confirmation', {
+      await supabase.functions.invoke('send-shop-confirmation', {
         body: { email: email.trim(), shopName: shopName.trim() },
       });
-      const emailFailed = !!emailError || (emailData && typeof emailData === 'object' && 'error' in emailData);
-      setEmailSendFailed(emailFailed);
 
       setSubmitted(true);
     } catch (e) {
@@ -234,23 +231,6 @@ const OpenShopPage = () => {
           >
             We'll review <strong>{shopName}</strong> and notify you at <strong>{email}</strong> once it's live. This usually takes less than 24 hours.
           </motion.p>
-          {emailSendFailed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="mt-4 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-left text-sm text-amber-800 dark:text-amber-200"
-            >
-              <p className="font-medium">Confirmation email was not sent</p>
-              <p className="mt-1">Check your spam folder. If it’s still missing, the email sender isn’t set up yet:</p>
-              <ol className="mt-2 list-inside list-decimal space-y-1 text-xs">
-                <li>Sign up at <a href="https://resend.com" target="_blank" rel="noreferrer" className="underline">resend.com</a> and create an API key.</li>
-                <li>In Supabase Dashboard → Project Settings → Edge Functions, add secret <strong>RESEND_API_KEY</strong>.</li>
-                <li>Deploy the function: <code className="rounded bg-black/10 px-1">npx supabase functions deploy send-shop-confirmation</code></li>
-              </ol>
-              <p className="mt-2 text-xs">See <code className="rounded bg-black/10 px-1">supabase/functions/README.md</code> for full steps.</p>
-            </motion.div>
-          )}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
