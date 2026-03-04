@@ -118,6 +118,16 @@ export type Database = {
           status: string | null
           total: number
           created_at: string | null
+          order_number: string | null
+          customer_name: string | null
+          customer_email: string | null
+          customer_phone: string | null
+          shipping_address: string | null
+          shipping_city: string | null
+          shipping_state: string | null
+          shipping_zip_code: string | null
+          shipping_country: string | null
+          shipping_method: string | null
         }
         Insert: {
           id?: string
@@ -126,6 +136,16 @@ export type Database = {
           status?: string | null
           total: number
           created_at?: string | null
+          order_number?: string | null
+          customer_name?: string | null
+          customer_email?: string | null
+          customer_phone?: string | null
+          shipping_address?: string | null
+          shipping_city?: string | null
+          shipping_state?: string | null
+          shipping_zip_code?: string | null
+          shipping_country?: string | null
+          shipping_method?: string | null
         }
         Update: {
           id?: string
@@ -134,6 +154,16 @@ export type Database = {
           status?: string | null
           total?: number
           created_at?: string | null
+          order_number?: string | null
+          customer_name?: string | null
+          customer_email?: string | null
+          customer_phone?: string | null
+          shipping_address?: string | null
+          shipping_city?: string | null
+          shipping_state?: string | null
+          shipping_zip_code?: string | null
+          shipping_country?: string | null
+          shipping_method?: string | null
         }
         Relationships: [
           {

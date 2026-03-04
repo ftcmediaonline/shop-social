@@ -2,6 +2,14 @@
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies so migration is idempotent (safe to re-run)
+DROP POLICY IF EXISTS "Shop owners can view their shop orders" ON public.orders;
+DROP POLICY IF EXISTS "Users can view own orders" ON public.orders;
+DROP POLICY IF EXISTS "Users can insert own orders" ON public.orders;
+DROP POLICY IF EXISTS "Shop owners can view order items for their shop" ON public.order_items;
+DROP POLICY IF EXISTS "Users can view own order items" ON public.order_items;
+DROP POLICY IF EXISTS "Users can insert own order items" ON public.order_items;
+
 -- Shop owners can view orders for their shop
 CREATE POLICY "Shop owners can view their shop orders"
 ON public.orders

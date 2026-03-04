@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import {
@@ -37,6 +38,8 @@ type OrderRow = Tables<'orders'> & {
   order_items?: (Tables<'order_items'> & { products?: { name: string } | null })[];
 };
 
+type CustomerProfile = { id: string; full_name: string | null; username: string };
+
 function slugFromName(name: string): string {
   return name
     .trim()
@@ -47,6 +50,7 @@ function slugFromName(name: string): string {
 
 const SellerDashboardPage = () => {
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [shop, setShop] = useState<Shop | null>(null);
   const [shopLoading, setShopLoading] = useState(true);
@@ -63,8 +67,20 @@ const SellerDashboardPage = () => {
   const [addError, setAddError] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
   const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [customerByUserId, setCustomerByUserId] = useState<Record<string, CustomerProfile>>({});
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+
+  const handleMarkDelivered = async (orderId: string) => {
+    setUpdatingOrderId(orderId);
+    await supabase.from('orders').update({ status: 'delivered' }).eq('id', orderId);
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: 'delivered' } : o))
+    );
+    setUpdatingOrderId(null);
+  };
 
   useEffect(() => {
     if (!user) {
@@ -131,8 +147,25 @@ const SellerDashboardPage = () => {
       .eq('shop_id', shop.id)
       .order('created_at', { ascending: false })
       .then(({ data }) => {
-        setOrders((data ?? []) as OrderRow[]);
+        const list = (data ?? []) as OrderRow[];
+        setOrders(list);
         setOrdersLoading(false);
+        const userIds = [...new Set(list.map((o) => o.user_id).filter(Boolean))];
+        if (userIds.length === 0) {
+          setCustomerByUserId({});
+          return;
+        }
+        supabase
+          .from('profiles')
+          .select('id, full_name, username')
+          .in('id', userIds)
+          .then(({ data: profiles }) => {
+            const map: Record<string, CustomerProfile> = {};
+            (profiles ?? []).forEach((p: { id: string; full_name: string | null; username: string }) => {
+              map[p.id] = { id: p.id, full_name: p.full_name ?? null, username: p.username ?? '—' };
+            });
+            setCustomerByUserId(map);
+          });
       });
   }, [shop]);
 
@@ -210,21 +243,44 @@ const SellerDashboardPage = () => {
     const text = replyDraft[reviewId]?.trim();
     if (!text) return;
     setReplyingId(reviewId);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('reviews')
       .update({ owner_reply: text, owner_replied_at: new Date().toISOString() })
-      .eq('id', reviewId);
+      .eq('id', reviewId)
+      .select('id')
+      .single();
     setReplyingId(null);
-    if (!error) {
-      setReplyDraft((prev) => ({ ...prev, [reviewId]: '' }));
-      setReviews((prev) =>
-        prev.map((r) =>
-          r.id === reviewId
-            ? { ...r, owner_reply: text, owner_replied_at: new Date().toISOString() }
-            : r
-        )
-      );
+    setEditingReplyId(null);
+    if (error) {
+      toast({
+        title: 'Could not save reply',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return;
     }
+    if (!data) {
+      toast({
+        title: 'Could not save reply',
+        description: 'You may not have permission to reply to this review.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setReplyDraft((prev) => ({ ...prev, [reviewId]: '' }));
+    setReviews((prev) =>
+      prev.map((r) =>
+        r.id === reviewId
+          ? { ...r, owner_reply: text, owner_replied_at: new Date().toISOString() }
+          : r
+      )
+    );
+    toast({ title: 'Reply saved', description: 'Your reply has been published.' });
+  };
+
+  const startEditReply = (r: Review) => {
+    setEditingReplyId(r.id);
+    setReplyDraft((prev) => ({ ...prev, [r.id]: r.owner_reply ?? '' }));
   };
 
   if (authLoading || shopLoading) {
@@ -441,48 +497,112 @@ const SellerDashboardPage = () => {
                   </p>
                 ) : (
                   <ul className="space-y-4">
-                    {orders.map((order) => (
-                      <li
-                        key={order.id}
-                        className="rounded-lg border border-border p-4 space-y-2"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="text-xs font-mono text-muted-foreground">
-                            #{order.id.slice(0, 8)}
-                          </span>
-                          <span className="text-sm text-muted-foreground">
-                            {order.created_at
-                              ? new Date(order.created_at).toLocaleString()
-                              : '—'}
-                          </span>
-                          <span
-                            className={cn(
-                              'rounded-full px-2 py-0.5 text-xs font-medium',
-                              order.status === 'delivered'
-                                ? 'bg-green-500/20 text-green-700 dark:text-green-400'
-                                : order.status === 'cancelled'
-                                  ? 'bg-destructive/20 text-destructive'
-                                  : 'bg-primary/20 text-primary'
+                    {orders.map((order) => {
+                      const customer = order.user_id ? customerByUserId[order.user_id] : null;
+                      const isPending = (order.status ?? 'pending') === 'pending';
+                      return (
+                        <li
+                          key={order.id}
+                          className="rounded-lg border border-border p-4 space-y-3"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-xs font-mono text-muted-foreground">
+                              {order.order_number ?? `#${order.id.slice(0, 8)}`}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              {order.created_at
+                                ? new Date(order.created_at).toLocaleString()
+                                : '—'}
+                            </span>
+                            <span
+                              className={cn(
+                                'rounded-full px-2 py-0.5 text-xs font-medium',
+                                order.status === 'delivered'
+                                  ? 'bg-green-500/20 text-green-700 dark:text-green-400'
+                                  : order.status === 'cancelled'
+                                    ? 'bg-destructive/20 text-destructive'
+                                    : 'bg-primary/20 text-primary'
+                              )}
+                            >
+                              {order.status ?? 'pending'}
+                            </span>
+                          </div>
+                          {/* Customer & shipping details (from checkout form) */}
+                          <div className="rounded-md bg-muted/50 p-3 text-sm space-y-2">
+                            <p className="font-medium text-muted-foreground">Customer & shipping</p>
+                            {(order.customer_name ?? order.customer_email) ? (
+                              <>
+                                <p className="text-foreground font-medium">
+                                  {order.customer_name || customer?.full_name || (customer ? `@${customer.username}` : null) || '—'}
+                                  {customer && !order.customer_name && (
+                                    <span className="text-muted-foreground font-normal"> (@{customer.username})</span>
+                                  )}
+                                </p>
+                                {order.customer_email && (
+                                  <p className="text-foreground">
+                                    <a href={`mailto:${order.customer_email}`} className="text-primary hover:underline">
+                                      {order.customer_email}
+                                    </a>
+                                  </p>
+                                )}
+                                {order.customer_phone && (
+                                  <p className="text-foreground">
+                                    <a href={`tel:${order.customer_phone}`} className="text-primary hover:underline">
+                                      {order.customer_phone}
+                                    </a>
+                                  </p>
+                                )}
+                                {(order.shipping_address || order.shipping_city) && (
+                                  <p className="text-muted-foreground">
+                                    {[order.shipping_address, [order.shipping_city, order.shipping_state, order.shipping_zip_code].filter(Boolean).join(', '), order.shipping_country].filter(Boolean).join(', ')}
+                                  </p>
+                                )}
+                                {order.shipping_method && (
+                                  <p className="text-muted-foreground capitalize">
+                                    Shipping: {order.shipping_method.replace(/-/g, ' ')}
+                                  </p>
+                                )}
+                              </>
+                            ) : customer ? (
+                              <p className="text-foreground">
+                                {customer.full_name || 'No name'}{' '}
+                                <span className="text-muted-foreground">(@{customer.username})</span>
+                              </p>
+                            ) : (
+                              <p className="text-muted-foreground">No contact details</p>
                             )}
-                          >
-                            {order.status ?? 'pending'}
-                          </span>
-                        </div>
-                        <p className="font-semibold">${Number(order.total).toFixed(2)} total</p>
-                        {order.order_items && order.order_items.length > 0 && (
-                          <ul className="mt-2 space-y-1 text-sm text-muted-foreground border-t border-border pt-2">
-                            {order.order_items.map((oi) => (
-                              <li key={oi.id} className="flex justify-between">
-                                <span>
-                                  {oi.products?.name ?? 'Product'} × {oi.quantity}
-                                </span>
-                                <span>${Number(oi.price * oi.quantity).toFixed(2)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </li>
-                    ))}
+                          </div>
+                          <p className="font-semibold">${Number(order.total).toFixed(2)} total</p>
+                          {order.order_items && order.order_items.length > 0 && (
+                            <ul className="space-y-1 text-sm text-muted-foreground border-t border-border pt-2">
+                              {order.order_items.map((oi) => (
+                                <li key={oi.id} className="flex justify-between">
+                                  <span>
+                                    {oi.products?.name ?? 'Product'} × {oi.quantity}
+                                  </span>
+                                  <span>${Number(oi.price * oi.quantity).toFixed(2)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {isPending && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full sm:w-auto"
+                              disabled={updatingOrderId === order.id}
+                              onClick={() => handleMarkDelivered(order.id)}
+                            >
+                              {updatingOrderId === order.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                'Mark as delivered'
+                              )}
+                            </Button>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </CardContent>
@@ -530,10 +650,19 @@ const SellerDashboardPage = () => {
                           </span>
                         </div>
                         <p className="text-foreground">{r.comment || 'No comment'}</p>
-                        {r.owner_reply ? (
+                        {r.owner_reply && editingReplyId !== r.id ? (
                           <div className="rounded-md bg-muted/50 p-3 text-sm">
                             <p className="font-medium text-muted-foreground mb-1">Your reply</p>
                             <p>{r.owner_reply}</p>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="mt-2 h-8 text-xs"
+                              onClick={() => startEditReply(r)}
+                            >
+                              Edit reply
+                            </Button>
                           </div>
                         ) : (
                           <div className="flex gap-2 items-end">
@@ -552,17 +681,35 @@ const SellerDashboardPage = () => {
                                 className="resize-none"
                               />
                             </div>
-                            <Button
-                              size="sm"
-                              onClick={() => handleReply(r.id)}
-                              disabled={!replyDraft[r.id]?.trim() || replyingId === r.id}
-                            >
-                              {replyingId === r.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                'Reply'
+                            <div className="flex gap-2">
+                              {editingReplyId === r.id && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingReplyId(null);
+                                    setReplyDraft((prev) => ({ ...prev, [r.id]: '' }));
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
                               )}
-                            </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => handleReply(r.id)}
+                                disabled={!replyDraft[r.id]?.trim() || replyingId === r.id}
+                              >
+                                {replyingId === r.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : r.owner_reply ? (
+                                  'Update reply'
+                                ) : (
+                                  'Reply'
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </li>

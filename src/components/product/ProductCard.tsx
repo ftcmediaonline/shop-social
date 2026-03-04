@@ -5,6 +5,7 @@ import { Heart, ShoppingBag, Star } from 'lucide-react';
 import { Product, Shop } from '@/types';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
+import { useWishlist } from '@/context/WishlistContext';
 import { cn } from '@/lib/utils';
 
 interface ProductCardProps {
@@ -15,9 +16,10 @@ interface ProductCardProps {
 }
 
 const ProductCard = ({ product, shop, index = 0, variant = 'default' }: ProductCardProps) => {
-  const [isLiked, setIsLiked] = useState(product.isLiked || false);
-  const [isHovered, setIsHovered] = useState(false);
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const isLiked = isInWishlist(product.id);
+  const [isHovered, setIsHovered] = useState(false);
 
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
@@ -26,13 +28,13 @@ const ProductCard = ({ product, shop, index = 0, variant = 'default' }: ProductC
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    addToCart(product);
+    addToCart(product, 1, undefined, shop);
   };
 
   const handleLike = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsLiked(!isLiked);
+    toggleWishlist(product.id);
   };
 
   const handleReviewClick = (e: React.MouseEvent) => {

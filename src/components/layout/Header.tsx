@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ShoppingBag, User, Menu, X, Heart, Sun, Moon, LogOut, Shield, Store } from 'lucide-react';
+import { Search, ShoppingBag, User, Menu, X, Heart, Sun, Moon, LogOut, Shield, Store, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCart } from '@/context/CartContext';
+import { useWishlist } from '@/context/WishlistContext';
 import tengaLogo from '@/assets/tenga-logo.png';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,6 +25,7 @@ const Header = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const { totalItems, setIsCartOpen } = useCart();
+  const { wishlistCount } = useWishlist();
   const { theme, toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
 
@@ -124,8 +126,19 @@ const Header = () => {
           </Button>
 
           {/* Wishlist */}
-          <Button variant="ghost" size="icon" className="hidden sm:flex">
-            <Heart className="h-5 w-5" />
+          <Button variant="ghost" size="icon" className="hidden sm:flex" asChild>
+            <Link to="/wishlist" className="relative hidden sm:flex h-10 w-10 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground">
+              <Heart className="h-5 w-5" />
+              {wishlistCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground"
+                >
+                  {wishlistCount > 99 ? '99+' : wishlistCount}
+                </motion.span>
+              )}
+            </Link>
           </Button>
 
           {/* Cart */}
@@ -160,6 +173,12 @@ const Header = () => {
                   {user.email}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/orders">
+                    <Package className="h-4 w-4 mr-2" />
+                    Order history
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/seller-dashboard">
                     <Store className="h-4 w-4 mr-2" />
@@ -235,6 +254,29 @@ const Header = () => {
                   {link.name}
                 </Link>
               ))}
+              <Link
+                to="/wishlist"
+                className="px-4 py-3 text-base font-medium text-foreground rounded-lg hover:bg-secondary transition-colors flex items-center gap-2"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <Heart className="h-4 w-4" />
+                Wishlist
+                {wishlistCount > 0 && (
+                  <span className="ml-auto text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5">
+                    {wishlistCount}
+                  </span>
+                )}
+              </Link>
+              {user && (
+                <Link
+                  to="/orders"
+                  className="px-4 py-3 text-base font-medium text-foreground rounded-lg hover:bg-secondary transition-colors flex items-center gap-2"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Package className="h-4 w-4" />
+                  Order history
+                </Link>
+              )}
               {isAdmin && (
                 <Link
                   to="/admin"

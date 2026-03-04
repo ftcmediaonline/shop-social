@@ -13,6 +13,8 @@ import ProductCard from '@/components/product/ProductCard';
 import { products as mockProducts, getShopById, getProductsByShopId } from '@/data/mockData';
 import { getReviewsByProductId } from '@/data/reviewsData';
 import { useCart } from '@/context/CartContext';
+import { useWishlist } from '@/context/WishlistContext';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { Product, Shop, Review } from '@/types';
 import { cn } from '@/lib/utils';
@@ -88,6 +90,8 @@ function mapDbShopToShop(row: {
 const ProductPage = () => {
   const { slug } = useParams();
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const { toast } = useToast();
   const [product, setProduct] = useState<Product | null>(null);
   const [shop, setShop] = useState<Shop | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
@@ -97,7 +101,37 @@ const ProductPage = () => {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
-  const [isLiked, setIsLiked] = useState(false);
+  const isLiked = product ? isInWishlist(product.id) : false;
+
+  const handleShare = async () => {
+    if (!product?.slug) return;
+    const url = `${window.location.origin}/product/${product.slug}`;
+    const title = product.name;
+    const text = `${product.name}${shop ? ` from ${shop.name}` : ''}`;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        toast({ title: 'Link shared', description: 'Thanks for sharing!' });
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          copyFallback(url);
+        }
+      }
+    } else {
+      copyFallback(url);
+    }
+  };
+
+  const copyFallback = (url: string) => {
+    if (!navigator.clipboard?.writeText) {
+      toast({ title: 'Copy link', description: url, variant: 'destructive' });
+      return;
+    }
+    navigator.clipboard.writeText(url).then(
+      () => toast({ title: 'Link copied', description: 'Product link copied to clipboard.' }),
+      () => toast({ title: 'Could not copy', description: 'Please copy the URL from your browser.', variant: 'destructive' })
+    );
+  };
 
   useEffect(() => {
     if (!slug) {
@@ -141,6 +175,8 @@ const ProductPage = () => {
             rating: r.rating ?? 0,
             comment: r.comment ?? '',
             createdAt: r.created_at ?? '',
+            ownerReply: r.owner_reply ?? undefined,
+            ownerRepliedAt: r.owner_replied_at ?? undefined,
           }))
         );
       } else {
@@ -433,11 +469,11 @@ const ProductPage = () => {
                 variant="outline"
                 size="lg"
                 className="h-14"
-                onClick={() => setIsLiked(!isLiked)}
+                onClick={() => product && toggleWishlist(product.id)}
               >
                 <Heart className={cn("h-5 w-5", isLiked && "fill-primary text-primary")} />
               </Button>
-              <Button variant="outline" size="lg" className="h-14">
+              <Button variant="outline" size="lg" className="h-14" onClick={handleShare} title="Share product link">
                 <Share2 className="h-5 w-5" />
               </Button>
             </div>
@@ -497,6 +533,12 @@ const ProductPage = () => {
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground line-clamp-2">{review.comment}</p>
+                  {'ownerReply' in review && review.ownerReply && (
+                    <div className="mt-2 pl-3 border-l-2 border-primary/30 text-sm text-muted-foreground">
+                      <span className="font-medium text-foreground">Seller: </span>
+                      {review.ownerReply}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

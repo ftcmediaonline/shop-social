@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import ScrollToTop from "@/components/ScrollToTop";
 import { CartProvider } from "@/context/CartContext";
+import { WishlistProvider } from "@/context/WishlistContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import Index from "./pages/Index";
 import ShopsPage from "./pages/ShopsPage";
@@ -26,6 +27,8 @@ import SellerDashboardPage from "./pages/SellerDashboardPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import PricingPage from "./pages/PricingPage";
 import SuccessStoriesPage from "./pages/SuccessStoriesPage";
+import WishlistPage from "./pages/WishlistPage";
+import OrderHistoryPage from "./pages/OrderHistoryPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +38,7 @@ const App = () => (
     <ThemeProvider>
       <TooltipProvider>
         <CartProvider>
+          <WishlistProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -60,10 +64,13 @@ const App = () => (
               <Route path="/admin" element={<AdminDashboardPage />} />
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/success-stories" element={<SuccessStoriesPage />} />
+              <Route path="/wishlist" element={<WishlistPage />} />
+              <Route path="/orders" element={<OrderHistoryPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
+          </WishlistProvider>
         </CartProvider>
       </TooltipProvider>
     </ThemeProvider>

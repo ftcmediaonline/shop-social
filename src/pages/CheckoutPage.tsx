@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ShoppingBag, Minus, Plus, X, Truck, Shield, CreditCard } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Minus, Plus, X, Truck, Shield, CreditCard, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import CartDrawer from '@/components/layout/CartDrawer';
@@ -31,8 +33,10 @@ type AddressForm = z.infer<typeof addressSchema>;
 const CheckoutPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { items, removeFromCart, updateQuantity, totalPrice, totalItems, clearCart } = useCart();
   const [shippingMethod, setShippingMethod] = useState('standard');
+  const [placing, setPlacing] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof AddressForm, string>>>({});
   const [form, setForm] = useState<AddressForm>({
     firstName: '',
@@ -56,7 +60,7 @@ const CheckoutPage = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const result = addressSchema.safeParse(form);
 
@@ -71,20 +75,76 @@ const CheckoutPage = () => {
       return;
     }
 
-    // Generate order number and navigate to confirmation
     const orderNumber = `TNG-${Date.now().toString(36).toUpperCase()}`;
+    const confirmationState = {
+      orderNumber,
+      items: items.map(i => ({ name: i.product.name, qty: i.quantity, price: i.product.price, image: i.product.images[0] })),
+      shippingAddress: result.data,
+      shippingMethod,
+      shippingCost,
+      subtotal: totalPrice,
+      total: orderTotal,
+    };
+
+    // Persist orders to DB when logged in (so sellers see them)
+    if (user) {
+      setPlacing(true);
+      const byShop = new Map<string, typeof items>();
+      for (const item of items) {
+        const sid = item.shop.id;
+        if (!byShop.has(sid)) byShop.set(sid, []);
+        byShop.get(sid)!.push(item);
+      }
+      try {
+        const addr = result.data;
+          for (const [shopId, shopItems] of byShop) {
+          const orderTotalForShop = shopItems.reduce((s, i) => s + i.product.price * i.quantity, 0);
+          const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .insert({
+              user_id: user.id,
+              shop_id: shopId,
+              total: orderTotalForShop,
+              status: 'pending',
+              order_number: orderNumber,
+              customer_name: `${addr.firstName} ${addr.lastName}`.trim(),
+              customer_email: addr.email,
+              customer_phone: addr.phone,
+              shipping_address: addr.address,
+              shipping_city: addr.city,
+              shipping_state: addr.state,
+              shipping_zip_code: addr.zipCode,
+              shipping_country: addr.country,
+              shipping_method: shippingMethod,
+            })
+            .select('id')
+            .single();
+          if (orderError) {
+            toast({ title: 'Could not create order', description: orderError.message, variant: 'destructive' });
+            setPlacing(false);
+            return;
+          }
+          for (const it of shopItems) {
+            const { error: itemError } = await supabase.from('order_items').insert({
+              order_id: order.id,
+              product_id: it.product.id,
+              quantity: it.quantity,
+              price: Number(it.product.price),
+            });
+            if (itemError) {
+              toast({ title: 'Could not save order items', description: itemError.message, variant: 'destructive' });
+              setPlacing(false);
+              return;
+            }
+          }
+        }
+      } finally {
+        setPlacing(false);
+      }
+    }
+
     clearCart();
-    navigate('/order-confirmation', {
-      state: {
-        orderNumber,
-        items: items.map(i => ({ name: i.product.name, qty: i.quantity, price: i.product.price, image: i.product.images[0] })),
-        shippingAddress: result.data,
-        shippingMethod,
-        shippingCost,
-        subtotal: totalPrice,
-        total: orderTotal,
-      },
-    });
+    navigate('/order-confirmation', { state: confirmationState });
   };
 
   if (items.length === 0) {
@@ -261,8 +321,8 @@ const CheckoutPage = () => {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full h-12 bg-gradient-primary text-base font-medium">
-                  Place Order
+                <Button type="submit" disabled={placing} className="w-full h-12 bg-gradient-primary text-base font-medium">
+                  {placing ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Place Order'}
                 </Button>
 
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">

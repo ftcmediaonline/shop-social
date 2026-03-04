@@ -5,6 +5,7 @@ import {
   BadgeCheck, MapPin, Star, Grid3X3, Share2, MessageCircle, ChevronLeft, Loader2 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ProductCard from '@/components/product/ProductCard';
 import Header from '@/components/layout/Header';
@@ -90,14 +91,44 @@ function mapDbProductToProduct(row: {
 }
 
 const ShopPage = () => {
-  const { slug } = useParams();
+  const { slug: slugParam } = useParams();
+  const { toast } = useToast();
   const [isFollowing, setIsFollowing] = useState(false);
   const [shop, setShop] = useState<Shop | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const handleShare = async () => {
+    const shopSlug = slugParam ?? shop?.slug;
+    if (!shopSlug) return;
+    const url = `${window.location.origin}/shop/${shopSlug}`;
+    const title = shop?.name ?? 'Shop';
+    const text = shop?.name ? `Check out ${shop.name}` : undefined;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        toast({ title: 'Link shared', description: 'Thanks for sharing!' });
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') copyFallback(url);
+      }
+    } else {
+      copyFallback(url);
+    }
+  };
+
+  const copyFallback = (url: string) => {
+    if (!navigator.clipboard?.writeText) {
+      toast({ title: 'Copy link', description: url, variant: 'destructive' });
+      return;
+    }
+    navigator.clipboard.writeText(url).then(
+      () => toast({ title: 'Link copied', description: 'Shop link copied to clipboard.' }),
+      () => toast({ title: 'Could not copy', description: 'Please copy the URL from your browser.', variant: 'destructive' })
+    );
+  };
+
   useEffect(() => {
-    if (!slug) {
+    if (!slugParam) {
       setLoading(false);
       return;
     }
@@ -105,7 +136,7 @@ const ShopPage = () => {
       const { data: shopRow } = await supabase
         .from('shops')
         .select('*, categories(name)')
-        .eq('slug', slug)
+        .eq('slug', slugParam)
         .eq('is_verified', true)
         .maybeSingle();
 
@@ -117,13 +148,13 @@ const ShopPage = () => {
           .eq('shop_id', shopRow.id);
         setProducts((productRows ?? []).map(mapDbProductToProduct));
       } else {
-        const mockShop = mockShops.find((s) => s.slug === slug);
+        const mockShop = mockShops.find((s) => s.slug === slugParam);
         setShop(mockShop ?? null);
         setProducts(mockShop ? getProductsByShopId(mockShop.id) : []);
       }
       setLoading(false);
     })();
-  }, [slug]);
+  }, [slugParam]);
 
   if (loading) {
     return (
@@ -244,7 +275,7 @@ const ShopPage = () => {
                   <Button variant="outline" size="icon">
                     <MessageCircle className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="icon">
+                  <Button variant="outline" size="icon" onClick={handleShare} title="Share shop link">
                     <Share2 className="h-4 w-4" />
                   </Button>
                 </motion.div>

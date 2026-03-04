@@ -68,14 +68,34 @@ const ShopsPage = () => {
         return;
       }
       // Get real product counts per shop (shops.product_count is not auto-updated)
-      const { data: productRows } = await supabase.from('products').select('shop_id');
+      const shopIds = shopRows.map((r) => r.id);
+      const { data: productRows } = await supabase.from('products').select('id, shop_id').in('shop_id', shopIds);
       const countByShop: Record<string, number> = {};
+      const productToShop: Record<string, string> = {};
       (productRows ?? []).forEach((p) => {
         countByShop[p.shop_id] = (countByShop[p.shop_id] ?? 0) + 1;
+        productToShop[p.id] = p.shop_id;
       });
+      const productIds = Object.keys(productToShop);
+      let ratingByShop: Record<string, { sum: number; count: number }> = {};
+      if (productIds.length > 0) {
+        const { data: reviewRows } = await supabase.from('reviews').select('product_id, rating').in('product_id', productIds);
+        (reviewRows ?? []).forEach((r) => {
+          const shopId = productToShop[r.product_id];
+          if (!shopId || r.rating == null) return;
+          if (!ratingByShop[shopId]) ratingByShop[shopId] = { sum: 0, count: 0 };
+          ratingByShop[shopId].sum += r.rating;
+          ratingByShop[shopId].count += 1;
+        });
+      }
       const approvedShops: Shop[] = shopRows.map((row) => {
         const mapped = mapDbShopToShop(row);
         mapped.productCount = countByShop[row.id] ?? 0;
+        const agg = ratingByShop[row.id];
+        if (agg && agg.count > 0) {
+          mapped.rating = Math.round((agg.sum / agg.count) * 10) / 10;
+          mapped.reviewCount = agg.count;
+        }
         return mapped;
       });
       setShops([...approvedShops, ...mockShops]);
