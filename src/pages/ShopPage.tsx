@@ -187,23 +187,36 @@ const ShopPage = () => {
           .from('products')
           .select('*, product_images(image_url)')
           .eq('shop_id', shopRow.id);
-        const productList = (productRows ?? []).map(mapDbProductToProduct);
-        setProducts(productList);
         const productIds = (productRows ?? []).map((p) => p.id);
+        let ratingByProduct: Record<string, { sum: number; count: number }> = {};
         if (productIds.length > 0) {
           const { data: reviewRows } = await supabase
             .from('reviews')
-            .select('rating')
+            .select('product_id, rating')
             .in('product_id', productIds);
-          const n = (reviewRows ?? []).length;
-          if (n > 0) {
-            const sum = (reviewRows ?? []).reduce((a, r) => a + (r.rating ?? 0), 0);
-            setRating(Math.round((sum / n) * 10) / 10);
-            setReviewCount(n);
-          } else {
-            setRating(0);
-            setReviewCount(0);
+          (reviewRows ?? []).forEach((r) => {
+            const id = r.product_id;
+            if (!id || r.rating == null) return;
+            if (!ratingByProduct[id]) ratingByProduct[id] = { sum: 0, count: 0 };
+            ratingByProduct[id].sum += r.rating;
+            ratingByProduct[id].count += 1;
+          });
+        }
+        const productList = (productRows ?? []).map((row) => {
+          const p = mapDbProductToProduct(row);
+          const agg = ratingByProduct[row.id];
+          if (agg && agg.count > 0) {
+            p.rating = Math.round((agg.sum / agg.count) * 10) / 10;
+            p.reviewCount = agg.count;
           }
+          return p;
+        });
+        setProducts(productList);
+        const n = Object.values(ratingByProduct).reduce((a, x) => a + x.count, 0);
+        const sum = Object.values(ratingByProduct).reduce((a, x) => a + x.sum, 0);
+        if (n > 0) {
+          setRating(Math.round((sum / n) * 10) / 10);
+          setReviewCount(n);
         } else {
           setRating(0);
           setReviewCount(0);

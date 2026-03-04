@@ -146,7 +146,7 @@ const ProductPage = () => {
         .maybeSingle();
 
       if (productRow) {
-        setProduct(mapDbProductToProduct(productRow));
+        const mappedProduct = mapDbProductToProduct(productRow);
         const { data: shopRow } = await supabase
           .from('shops')
           .select('*, categories(name)')
@@ -165,8 +165,15 @@ const ProductPage = () => {
           .select('*')
           .eq('product_id', productRow.id)
           .order('created_at', { ascending: false });
+        const reviewList = reviewRows ?? [];
+        if (reviewList.length > 0) {
+          const sum = reviewList.reduce((a, r) => a + (r.rating ?? 0), 0);
+          mappedProduct.rating = Math.round((sum / reviewList.length) * 10) / 10;
+          mappedProduct.reviewCount = reviewList.length;
+        }
+        setProduct(mappedProduct);
         setReviews(
-          (reviewRows ?? []).map((r) => ({
+          reviewList.map((r) => ({
             id: r.id,
             productId: r.product_id ?? '',
             userId: r.user_id ?? '',

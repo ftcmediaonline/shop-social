@@ -121,7 +121,31 @@ const DiscoverPage = () => {
         .from('products')
         .select('*, product_images(image_url), shops(name, slug, logo, categories(name))')
         .in('shop_id', shopIds);
-      const mapped = (productRows ?? []).map((row) => mapDbProductToProduct(row));
+      const rows = productRows ?? [];
+      const productIds = rows.map((r) => r.id);
+      let ratingByProduct: Record<string, { sum: number; count: number }> = {};
+      if (productIds.length > 0) {
+        const { data: reviewRows } = await supabase
+          .from('reviews')
+          .select('product_id, rating')
+          .in('product_id', productIds);
+        (reviewRows ?? []).forEach((r) => {
+          const id = r.product_id;
+          if (!id || r.rating == null) return;
+          if (!ratingByProduct[id]) ratingByProduct[id] = { sum: 0, count: 0 };
+          ratingByProduct[id].sum += r.rating;
+          ratingByProduct[id].count += 1;
+        });
+      }
+      const mapped = rows.map((row) => {
+        const p = mapDbProductToProduct(row);
+        const agg = ratingByProduct[row.id];
+        if (agg && agg.count > 0) {
+          p.rating = Math.round((agg.sum / agg.count) * 10) / 10;
+          p.reviewCount = agg.count;
+        }
+        return p;
+      });
       setRealProducts(mapped);
       setProductsLoading(false);
     })();
