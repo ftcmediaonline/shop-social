@@ -109,10 +109,16 @@ const ShopsPage = () => {
     })();
   }, []);
 
-  const filteredShops = shops.filter(shop => {
-    const matchesSearch = searchQuery.trim() === '' ||
-      shop.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (shop.bio && shop.bio.toLowerCase().includes(searchQuery.toLowerCase()));
+  const searchTerms = searchQuery
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+  const filteredShops = shops.filter((shop) => {
+    const searchableText = [shop.name, shop.bio ?? ''].join(' ').toLowerCase();
+    const matchesSearch =
+      searchTerms.length === 0 ||
+      searchTerms.every((term) => searchableText.includes(term));
     const matchesCategory = !selectedCategory || shop.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -124,7 +130,7 @@ const ShopsPage = () => {
       <Header />
       <CartDrawer />
 
-      <div className="container py-8">
+      <div className="container py-6 sm:py-8 px-4 sm:px-6">
         {/* Header */}
         <div className="mb-8">
           <motion.h1
@@ -146,13 +152,13 @@ const ShopsPage = () => {
 
         {/* Search & Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <Input
               placeholder="Search shops..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-secondary border-0"
+              className="pl-10 pr-3 py-2.5 sm:py-2 bg-secondary border-0 text-base sm:text-sm"
             />
           </div>
           <Button

@@ -5,21 +5,38 @@ import Footer from '@/components/layout/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
-import { Store, Check, X, ShieldAlert, Loader2 } from 'lucide-react';
+import { Store, Check, X, ShieldAlert, Loader2, Users, Shield, Trash2, ExternalLink } from 'lucide-react';
 
 type Shop = Tables<'shops'>;
+
+type ProfileRow = {
+  id: string;
+  full_name: string | null;
+  username: string | null;
+  role: string | null;
+  created_at: string | null;
+};
 
 const AdminDashboardPage = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [profileRole, setProfileRole] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [pendingShops, setPendingShops] = useState<Shop[]>([]);
+  const [allShops, setAllShops] = useState<Shop[]>([]);
+  const [ownerByShopId, setOwnerByShopId] = useState<Record<string, { full_name: string | null; username: string | null }>>({});
+  const [users, setUsers] = useState<ProfileRow[]>([]);
   const [shopsLoading, setShopsLoading] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [deletingShopId, setDeletingShopId] = useState<string | null>(null);
+  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -40,32 +57,119 @@ const AdminDashboardPage = () => {
   useEffect(() => {
     if (profileRole !== 'admin') return;
     (async () => {
-      const { data, error } = await supabase
-        .from('shops')
-        .select('*')
-        .eq('is_verified', false)
-        .order('created_at', { ascending: false });
-      if (!error) setPendingShops(data ?? []);
+      const [pendingRes, allRes] = await Promise.all([
+        supabase.from('shops').select('*').eq('is_verified', false).order('created_at', { ascending: false }),
+        supabase.from('shops').select('*').order('created_at', { ascending: false }),
+      ]);
+      const pending = pendingRes.data ?? [];
+      const all = allRes.data ?? [];
+      if (!pendingRes.error) setPendingShops(pending);
+      if (!allRes.error) setAllShops(all);
+      const ownerIds = [...new Set([...pending, ...all].map((s) => s.owner_id).filter(Boolean))] as string[];
+      const ownerMap: Record<string, { full_name: string | null; username: string | null }> = {};
+      if (ownerIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, username')
+          .in('id', ownerIds);
+        (profiles ?? []).forEach((row: { id: string; full_name: string | null; username: string | null }) => {
+          ownerMap[row.id] = { full_name: row.full_name, username: row.username };
+        });
+      }
+      const byShopId: Record<string, { full_name: string | null; username: string | null }> = {};
+      [...pending, ...all].forEach((s) => {
+        if (s.owner_id && ownerMap[s.owner_id]) byShopId[s.id] = ownerMap[s.owner_id];
+      });
+      setOwnerByShopId(byShopId);
       setShopsLoading(false);
+    })();
+  }, [profileRole]);
+
+  useEffect(() => {
+    if (profileRole !== 'admin') return;
+    (async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, username, role, created_at')
+        .order('created_at', { ascending: false });
+      if (!error) setUsers((data as ProfileRow[]) ?? []);
+      setUsersLoading(false);
     })();
   }, [profileRole]);
 
   const handleApprove = async (shop: Shop) => {
     setApprovingId(shop.id);
-    const { error } = await supabase
-      .from('shops')
-      .update({ is_verified: true })
-      .eq('id', shop.id);
+    const { error } = await supabase.from('shops').update({ is_verified: true }).eq('id', shop.id);
     setApprovingId(null);
-    if (!error) setPendingShops((prev) => prev.filter((s) => s.id !== shop.id));
+    if (!error) {
+      setPendingShops((prev) => prev.filter((s) => s.id !== shop.id));
+      setAllShops((prev) => prev.map((s) => (s.id === shop.id ? { ...s, is_verified: true } : s)));
+      toast({ title: 'Shop approved', description: `${shop.name} is now live.` });
+    } else toast({ title: 'Failed to approve', description: error.message, variant: 'destructive' });
   };
 
   const handleReject = async (shop: Shop) => {
-    if (!confirm(`Reject "${shop.name}"? This will remove the shop application.`)) return;
+    if (!confirm(`Are you sure you want to reject "${shop.name}"? This will remove the shop application.`)) return;
     setRejectingId(shop.id);
     const { error } = await supabase.from('shops').delete().eq('id', shop.id);
     setRejectingId(null);
-    if (!error) setPendingShops((prev) => prev.filter((s) => s.id !== shop.id));
+    if (!error) {
+      setPendingShops((prev) => prev.filter((s) => s.id !== shop.id));
+      setAllShops((prev) => prev.filter((s) => s.id !== shop.id));
+      toast({ title: 'Shop rejected', description: 'The shop application has been removed.' });
+    } else toast({ title: 'Failed to reject', description: error.message, variant: 'destructive' });
+  };
+
+  const handleDeleteShop = async (shop: Shop) => {
+    if (!confirm(`Are you sure you want to permanently delete "${shop.name}"? This cannot be undone.`)) return;
+    setDeletingShopId(shop.id);
+    const { error } = await supabase.from('shops').delete().eq('id', shop.id);
+    setDeletingShopId(null);
+    if (!error) {
+      setAllShops((prev) => prev.filter((s) => s.id !== shop.id));
+      setPendingShops((prev) => prev.filter((s) => s.id !== shop.id));
+      toast({ title: 'Shop deleted', description: `${shop.name} has been removed.` });
+    } else toast({ title: 'Failed to delete shop', description: error.message, variant: 'destructive' });
+  };
+
+  const handleSetAdmin = async (profile: ProfileRow, makeAdmin: boolean) => {
+    const name = profile.full_name || profile.username || profile.id;
+    const message = makeAdmin
+      ? `Are you sure you want to make "${name}" an admin? They will have full access to the admin dashboard.`
+      : `Are you sure you want to remove admin access from "${name}"? They will no longer be able to access the admin dashboard.`;
+    if (!confirm(message)) return;
+    setUpdatingRoleId(profile.id);
+    const { error } = await supabase.rpc('set_user_role', {
+      target_profile_id: profile.id,
+      new_role: makeAdmin ? 'admin' : 'user',
+    });
+    setUpdatingRoleId(null);
+    if (!error) {
+      setUsers((prev) => prev.map((p) => (p.id === profile.id ? { ...p, role: makeAdmin ? 'admin' : 'user' } : p)));
+      toast({ title: makeAdmin ? 'User is now an admin' : 'Admin role removed' });
+    } else {
+      toast({ title: 'Failed to update role', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteUser = async (profile: ProfileRow) => {
+    const name = profile.full_name || profile.username || profile.id;
+    if (!confirm(`Are you sure you want to permanently delete user "${name}"? They will be signed out and will not be able to sign in again. This cannot be undone.`)) return;
+    setDeletingUserId(profile.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { user_id: profile.id },
+      });
+      setDeletingUserId(null);
+      if (error) throw new Error(error);
+      const body = typeof data === 'string' ? JSON.parse(data || '{}') : data || {};
+      if (body.error) throw new Error(body.error);
+      setUsers((prev) => prev.filter((p) => p.id !== profile.id));
+      toast({ title: 'User deleted', description: 'The user account has been removed.' });
+    } catch (e) {
+      setDeletingUserId(null);
+      toast({ title: 'Failed to delete user', description: (e as Error).message, variant: 'destructive' });
+    }
   };
 
   if (authLoading || profileLoading) {
@@ -107,13 +211,14 @@ const AdminDashboardPage = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 container py-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Admin dashboard</h1>
-          <p className="text-muted-foreground mt-1">Review and approve shop applications.</p>
+      <main className="flex-1 container py-8 sm:py-12 px-4 sm:px-6 max-w-5xl">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold">Admin dashboard</h1>
+          <p className="text-muted-foreground mt-1">Manage shops, users, and approvals.</p>
         </div>
 
-        <Card>
+        {/* Pending shops */}
+        <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Store className="h-5 w-5" />
@@ -136,11 +241,7 @@ const AdminDashboardPage = () => {
                   >
                     <div className="flex-1 min-w-0 flex items-start gap-4">
                       {shop.logo ? (
-                        <img
-                          src={shop.logo}
-                          alt=""
-                          className="h-14 w-14 rounded-lg object-cover shrink-0"
-                        />
+                        <img src={shop.logo} alt="" className="h-14 w-14 rounded-lg object-cover shrink-0" />
                       ) : (
                         <div className="h-14 w-14 rounded-lg bg-secondary flex items-center justify-center shrink-0">
                           <Store className="h-6 w-6 text-muted-foreground" />
@@ -149,12 +250,15 @@ const AdminDashboardPage = () => {
                       <div className="min-w-0">
                         <p className="font-semibold truncate">{shop.name}</p>
                         <p className="text-sm text-muted-foreground">/{shop.slug}</p>
-                        {shop.bio && (
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{shop.bio}</p>
+                        {ownerByShopId[shop.id] && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Owner: {ownerByShopId[shop.id].full_name || ownerByShopId[shop.id].username || '—'}
+                            {ownerByShopId[shop.id].username && (
+                              <span className="ml-1">@{ownerByShopId[shop.id].username}</span>
+                            )}
+                          </p>
                         )}
-                        {shop.location && (
-                          <p className="text-xs text-muted-foreground mt-1">{shop.location}</p>
-                        )}
+                        {shop.bio && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{shop.bio}</p>}
                         {shop.created_at && (
                           <p className="text-xs text-muted-foreground mt-0.5">
                             Applied {new Date(shop.created_at).toLocaleDateString()}
@@ -162,45 +266,186 @@ const AdminDashboardPage = () => {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button
-                        size="sm"
-                        onClick={() => handleApprove(shop)}
-                        disabled={approvingId === shop.id || rejectingId === shop.id}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        {approvingId === shop.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Check className="h-4 w-4 mr-1" />
-                            Approve
-                          </>
-                        )}
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                      <Button size="sm" onClick={() => handleApprove(shop)} disabled={approvingId === shop.id || rejectingId === shop.id} className="bg-green-600 hover:bg-green-700">
+                        {approvingId === shop.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Check className="h-4 w-4 mr-1" /> Approve</>}
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleReject(shop)}
-                        disabled={approvingId === shop.id || rejectingId === shop.id}
-                      >
-                        {rejectingId === shop.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <X className="h-4 w-4 mr-1" />
-                            Reject
-                          </>
-                        )}
+                      <Button size="sm" variant="destructive" onClick={() => handleReject(shop)} disabled={approvingId === shop.id || rejectingId === shop.id}>
+                        {rejectingId === shop.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><X className="h-4 w-4 mr-1" /> Reject</>}
                       </Button>
                       <Button size="sm" variant="outline" asChild>
                         <Link to={`/shop/${shop.slug}`} target="_blank" rel="noopener noreferrer">
-                          View
+                          <ExternalLink className="h-4 w-4 mr-1" /> View
                         </Link>
                       </Button>
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* All shops */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Store className="h-5 w-5" />
+              All shops ({allShops.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {shopsLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : allShops.length === 0 ? (
+              <p className="text-muted-foreground text-center py-12">No shops yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 font-medium">Name</th>
+                      <th className="text-left py-3 font-medium">Slug</th>
+                      <th className="text-left py-3 font-medium">Owner</th>
+                      <th className="text-left py-3 font-medium">Status</th>
+                      <th className="text-right py-3 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allShops.map((shop) => (
+                      <tr key={shop.id} className="border-b border-border/50">
+                        <td className="py-3">{shop.name}</td>
+                        <td className="py-3 text-muted-foreground">/{shop.slug}</td>
+                        <td className="py-3 text-muted-foreground">
+                          {ownerByShopId[shop.id]
+                            ? [ownerByShopId[shop.id].full_name, ownerByShopId[shop.id].username && `@${ownerByShopId[shop.id].username}`].filter(Boolean).join(' ') || '—'
+                            : '—'}
+                        </td>
+                        <td className="py-3">
+                          <span className={shop.is_verified ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}>
+                            {shop.is_verified ? 'Verified' : 'Pending'}
+                          </span>
+                        </td>
+                        <td className="py-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="outline" asChild>
+                              <Link to={`/shop/${shop.slug}`} target="_blank" rel="noopener noreferrer">View</Link>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteShop(shop)}
+                              disabled={deletingShopId === shop.id}
+                            >
+                              {deletingShopId === shop.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-1" /> Delete</>}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Users */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Users ({users.length})
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">Make users admins or remove accounts.</p>
+          </CardHeader>
+          <CardContent>
+            {usersLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : users.length === 0 ? (
+              <p className="text-muted-foreground text-center py-12">No users yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 font-medium">Name</th>
+                      <th className="text-left py-3 font-medium">Username</th>
+                      <th className="text-left py-3 font-medium">Role</th>
+                      <th className="text-left py-3 font-medium">Joined</th>
+                      <th className="text-right py-3 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((p) => {
+                      const isSeller = allShops.some((s) => s.owner_id === p.id);
+                      const displayRole = p.role === 'admin' ? 'Admin' : isSeller ? 'Seller' : 'Customer';
+                      return (
+                      <tr key={p.id} className="border-b border-border/50">
+                        <td className="py-3">{p.full_name || '—'}</td>
+                        <td className="py-3 text-muted-foreground">@{p.username ?? '—'}</td>
+                        <td className="py-3">
+                          {displayRole === 'Admin' && (
+                            <span className="inline-flex items-center gap-1 text-primary font-medium">
+                              <Shield className="h-4 w-4" /> Admin
+                            </span>
+                          )}
+                          {displayRole === 'Seller' && (
+                            <span className="inline-flex items-center gap-1 text-muted-foreground">
+                              <Store className="h-4 w-4" /> Seller
+                            </span>
+                          )}
+                          {displayRole === 'Customer' && (
+                            <span className="text-muted-foreground">Customer</span>
+                          )}
+                        </td>
+                        <td className="py-3 text-muted-foreground">
+                          {p.created_at ? new Date(p.created_at).toLocaleDateString() : '—'}
+                        </td>
+                        <td className="py-3 text-right">
+                          <div className="flex justify-end gap-2 flex-wrap">
+                            {p.id !== user.id && (
+                              <>
+                                {p.role === 'admin' ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleSetAdmin(p, false)}
+                                    disabled={updatingRoleId === p.id}
+                                  >
+                                    {updatingRoleId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove admin'}
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleSetAdmin(p, true)}
+                                    disabled={updatingRoleId === p.id}
+                                  >
+                                    {updatingRoleId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Shield className="h-4 w-4 mr-1" /> Make admin</>}
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleDeleteUser(p)}
+                                  disabled={deletingUserId === p.id}
+                                >
+                                  {deletingUserId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-1" /> Delete user</>}
+                                </Button>
+                              </>
+                            )}
+                            {p.id === user.id && <span className="text-muted-foreground text-xs">(you)</span>}
+                          </div>
+                        </td>
+                      </tr>
+                    );})}
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>

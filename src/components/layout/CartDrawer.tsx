@@ -21,17 +21,17 @@ const CartDrawer = () => {
             onClick={() => setIsCartOpen(false)}
           />
 
-          {/* Drawer */}
+          {/* Drawer - full width on small mobile, max-w on tablet+ */}
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed right-0 top-0 z-50 h-full w-full max-w-md bg-background shadow-xl"
+            className="fixed right-0 top-0 z-50 h-full w-full max-w-md bg-background shadow-xl pt-[env(safe-area-inset-top)]"
           >
             <div className="flex h-full flex-col">
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-3 sm:py-4">
                 <div className="flex items-center gap-2">
                   <ShoppingBag className="h-5 w-5" />
                   <h2 className="text-lg font-semibold">Your Cart</h2>
@@ -39,13 +39,13 @@ const CartDrawer = () => {
                     {totalItems}
                   </span>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setIsCartOpen(false)}>
+                <Button variant="ghost" size="icon" className="h-11 w-11 min-w-[44px]" onClick={() => setIsCartOpen(false)}>
                   <X className="h-5 w-5" />
                 </Button>
               </div>
 
               {/* Cart Items */}
-              <div className="flex-1 overflow-y-auto px-6 py-4">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 py-4">
                 {items.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center">
                     <div className="rounded-full bg-secondary p-6 mb-4">
@@ -139,7 +139,7 @@ const CartDrawer = () => {
 
               {/* Footer */}
               {items.length > 0 && (
-                <div className="border-t border-border px-6 py-4 space-y-4">
+                <div className="border-t border-border px-4 sm:px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-4">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
                     <span className="font-medium">${totalPrice.toFixed(2)}</span>

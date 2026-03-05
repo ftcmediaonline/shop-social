@@ -9,8 +9,8 @@ const FeaturedShops = () => {
   const featuredShops = getFeaturedShops();
 
   return (
-    <section className="py-12 md:py-16">
-      <div className="container">
+    <section className="py-8 sm:py-12 md:py-16">
+      <div className="container px-4 sm:px-6">
         {/* Header */}
         <div className="flex items-end justify-between mb-8">
           <div>

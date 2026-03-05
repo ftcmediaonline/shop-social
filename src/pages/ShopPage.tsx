@@ -106,6 +106,7 @@ const ShopPage = () => {
   const [shop, setShop] = useState<Shop | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isPendingPreview, setIsPendingPreview] = useState(false);
 
   const handleShare = async () => {
     const shopSlug = slugParam ?? shop?.slug;
@@ -172,13 +173,35 @@ const ShopPage = () => {
       setLoading(false);
       return;
     }
+    setIsPendingPreview(false);
     (async () => {
-      const { data: shopRow } = await supabase
+      const { data: verifiedRow } = await supabase
         .from('shops')
         .select('*, categories(name)')
         .eq('slug', slugParam)
         .eq('is_verified', true)
         .maybeSingle();
+
+      let shopRow = verifiedRow;
+
+      if (!shopRow && user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (profileData?.role === 'admin') {
+          const { data: pendingRow } = await supabase
+            .from('shops')
+            .select('*, categories(name)')
+            .eq('slug', slugParam)
+            .maybeSingle();
+          if (pendingRow) {
+            shopRow = pendingRow;
+            setIsPendingPreview(true);
+          }
+        }
+      }
 
       if (shopRow) {
         const mapped = mapDbShopToShop(shopRow);
@@ -249,7 +272,7 @@ const ShopPage = () => {
       }
       setLoading(false);
     })();
-  }, [slugParam]);
+  }, [slugParam, user]);
 
   if (loading) {
     return (
@@ -281,6 +304,12 @@ const ShopPage = () => {
       <Header />
       <CartDrawer />
 
+      {isPendingPreview && (
+        <div className="bg-amber-500/15 border-b border-amber-500/30 text-amber-800 dark:text-amber-200 px-4 py-3 text-center text-sm font-medium">
+          This shop is pending approval. Only you (admin) can see this preview.
+        </div>
+      )}
+
       {/* Back Button (Mobile) */}
       <div className="container py-4 md:hidden">
         <Button asChild variant="ghost" size="sm" className="-ml-2">
@@ -302,7 +331,7 @@ const ShopPage = () => {
       </div>
 
       {/* Shop Info */}
-      <div className="container relative">
+      <div className="container relative px-4 sm:px-6">
         <div className="relative -mt-16 md:-mt-20 pb-6 border-b border-border">
           <div className="flex flex-col md:flex-row md:items-end gap-4 md:gap-6">
             {/* Logo */}
@@ -324,13 +353,13 @@ const ShopPage = () => {
             </motion.div>
 
             {/* Info */}
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
+                <div className="min-w-0">
                   <motion.h1
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-2xl font-bold md:text-3xl flex items-center gap-2"
+                    className="text-xl font-bold sm:text-2xl md:text-3xl flex flex-wrap items-center gap-2"
                   >
                     {shop.name}
                     {shop.isVerified && (
@@ -354,35 +383,35 @@ const ShopPage = () => {
                   </motion.p>
                 </div>
 
-                {/* Actions */}
+                {/* Actions - wrap on small screens, touch-friendly */}
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="flex items-center gap-2"
+                  className="flex flex-wrap items-center gap-2"
                 >
                   <Button
                     type="button"
                     onClick={handleFollow}
-                    className={isFollowing ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80' : 'bg-gradient-primary'}
+                    className={isFollowing ? 'min-h-[44px] px-4 sm:px-6 bg-secondary text-secondary-foreground hover:bg-secondary/80' : 'min-h-[44px] px-4 sm:px-6 bg-gradient-primary'}
                   >
                     {isFollowing ? 'Following' : 'Follow'}
                   </Button>
                   {shop.contactPhone && (
-                    <Button variant="outline" size="icon" title={`Call ${shop.name}`} asChild>
+                    <Button variant="outline" size="icon" className="h-11 w-11 min-w-[44px]" title={`Call ${shop.name}`} asChild>
                       <a href={`tel:${shop.contactPhone.replace(/\s/g, '')}`}>
                         <Phone className="h-4 w-4" />
                       </a>
                     </Button>
                   )}
                   {shop.contactEmail && (
-                    <Button variant="outline" size="icon" title={`Email ${shop.name}`} asChild>
+                    <Button variant="outline" size="icon" className="h-11 w-11 min-w-[44px]" title={`Email ${shop.name}`} asChild>
                       <a href={`mailto:${shop.contactEmail}`}>
                         <Mail className="h-4 w-4" />
                       </a>
                     </Button>
                   )}
-                  <Button variant="outline" size="icon" onClick={handleShare} title="Share shop link">
+                  <Button variant="outline" size="icon" className="h-11 w-11 min-w-[44px]" onClick={handleShare} title="Share shop link">
                     <Share2 className="h-4 w-4" />
                   </Button>
                 </motion.div>
@@ -403,7 +432,7 @@ const ShopPage = () => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="mt-4 flex items-center gap-6"
+                className="mt-4 flex flex-wrap items-center gap-4 sm:gap-6"
               >
                 <div className="text-center">
                   <div className="text-xl font-bold">{products.length}</div>

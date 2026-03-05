@@ -259,12 +259,12 @@ const ProductPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
       <CartDrawer />
 
       {/* Breadcrumb */}
-      <div className="container py-4">
+      <div className="container py-4 px-4 sm:px-6 max-w-full">
         <div className="flex items-center gap-2 text-sm">
           <Link to="/" className="text-muted-foreground hover:text-foreground">
             Home
@@ -281,20 +281,20 @@ const ProductPage = () => {
         </div>
       </div>
 
-      <div className="container pb-12">
-        <div className="grid gap-8 lg:grid-cols-2">
-          {/* Images */}
-          <div className="space-y-4">
+      <div className="container pb-12 px-4 sm:px-6 max-w-full">
+        <div className="grid gap-6 sm:gap-8 lg:grid-cols-2 min-w-0">
+          {/* Images - constrain on mobile to prevent horizontal scroll */}
+          <div className="space-y-4 min-w-0 max-w-full">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               key={getCurrentImage()}
-              className="relative aspect-square overflow-hidden rounded-2xl bg-secondary"
+              className="relative aspect-square overflow-hidden rounded-2xl bg-secondary max-w-full w-full mx-auto sm:mx-0"
             >
               <img
                 src={getCurrentImage()}
                 alt={product.name}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover max-w-full"
               />
               {discount && (
                 <div className="absolute left-4 top-4 rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">
@@ -320,7 +320,7 @@ const ProductPage = () => {
                       }
                     }}
                     className={cn(
-                      "flex-shrink-0 h-20 w-20 rounded-xl overflow-hidden border-2 transition-colors",
+                      "flex-shrink-0 h-16 w-16 sm:h-20 sm:w-20 rounded-xl overflow-hidden border-2 transition-colors min-w-[64px]",
                       selectedImage === index && !selectedVariants['Color']
                         ? "border-primary"
                         : "border-transparent opacity-70 hover:opacity-100"
@@ -338,7 +338,7 @@ const ProductPage = () => {
           </div>
 
           {/* Product Info */}
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             {/* Shop */}
             <Link
               to={`/shop/${shop.slug}`}

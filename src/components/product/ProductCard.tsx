@@ -70,23 +70,23 @@ const ProductCard = ({ product, shop, index = 0, variant = 'default' }: ProductC
             </div>
           )}
 
-          {/* Actions */}
+          {/* Actions - always visible on touch (hover: none), hover on desktop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: isHovered ? 1 : 0 }}
-            className="absolute bottom-3 right-3 flex gap-2"
+            className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 flex gap-2 [@media(hover:none)]:opacity-100"
           >
             <Button
               size="icon"
               variant="secondary"
-              className="h-10 w-10 rounded-full shadow-lg backdrop-blur-sm bg-background/80 hover:bg-background"
+              className="h-11 w-11 min-w-[44px] rounded-full shadow-lg backdrop-blur-sm bg-background/80 hover:bg-background"
               onClick={handleLike}
             >
               <Heart className={cn("h-5 w-5 transition-colors", isLiked && "fill-primary text-primary")} />
             </Button>
             <Button
               size="icon"
-              className="h-10 w-10 rounded-full shadow-lg bg-gradient-primary hover:opacity-90"
+              className="h-11 w-11 min-w-[44px] rounded-full shadow-lg bg-gradient-primary hover:opacity-90"
               onClick={handleAddToCart}
             >
               <ShoppingBag className="h-5 w-5" />

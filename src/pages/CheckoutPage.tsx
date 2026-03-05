@@ -171,22 +171,22 @@ const CheckoutPage = () => {
       <Header />
       <CartDrawer />
 
-      <main className="flex-1 container py-8">
+      <main className="flex-1 container py-6 sm:py-8 px-4 sm:px-6">
         {/* Back button */}
-        <Button variant="ghost" className="mb-6 -ml-3" onClick={() => navigate(-1)}>
+        <Button variant="ghost" className="mb-4 sm:mb-6 -ml-2 min-h-[44px]" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
 
-        <h1 className="text-2xl md:text-3xl font-bold mb-8">Checkout</h1>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-6 sm:mb-8">Checkout</h1>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
             {/* Left Column – Form */}
             <div className="lg:col-span-2 space-y-8">
               {/* Shipping Address */}
-              <section className="rounded-xl border border-border p-6">
-                <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
+              <section className="rounded-xl border border-border p-4 sm:p-6">
+                <h2 className="text-base sm:text-lg font-semibold mb-4 sm:mb-6 flex items-center gap-2">
                   <Truck className="h-5 w-5 text-primary" />
                   Shipping Address
                 </h2>
@@ -238,12 +238,12 @@ const CheckoutPage = () => {
                   ].map(opt => (
                     <label
                       key={opt.value}
-                      className={`flex items-center justify-between rounded-lg border p-4 cursor-pointer transition-colors ${
+                      className={`flex items-center justify-between rounded-lg border p-4 min-h-[56px] cursor-pointer transition-colors ${
                         shippingMethod === opt.value ? 'border-primary bg-accent' : 'border-border hover:border-primary/40'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <RadioGroupItem value={opt.value} />
+                      <div className="flex items-center gap-3 min-w-0">
+                        <RadioGroupItem value={opt.value} className="flex-shrink-0" />
                         <div>
                           <p className="font-medium text-sm">{opt.label}</p>
                           <p className="text-xs text-muted-foreground">{opt.desc}</p>
@@ -269,7 +269,7 @@ const CheckoutPage = () => {
 
             {/* Right Column – Order Summary */}
             <div className="lg:col-span-1">
-              <div className="sticky top-24 rounded-xl border border-border p-6 space-y-6">
+              <div className="lg:sticky lg:top-24 rounded-xl border border-border p-4 sm:p-6 space-y-6">
                 <h2 className="text-lg font-semibold">Order Summary</h2>
 
                 {/* Items */}

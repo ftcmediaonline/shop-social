@@ -77,6 +77,7 @@ const SellerDashboardPage = () => {
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [savingContact, setSavingContact] = useState(false);
+  const [isEditingContact, setIsEditingContact] = useState(false);
 
   const handleMarkDelivered = async (orderId: string) => {
     setUpdatingOrderId(orderId);
@@ -104,6 +105,7 @@ const SellerDashboardPage = () => {
       return;
     }
     setShop((prev) => prev ? { ...prev, contact_email: contactEmail.trim() || null, contact_phone: contactPhone.trim() || null } as Shop : null);
+    setIsEditingContact(false);
     toast({ title: 'Contact info saved', description: 'Call and email buttons will now show on your shop page.' });
   };
 
@@ -122,6 +124,14 @@ const SellerDashboardPage = () => {
       setShopLoading(false);
     })();
   }, [user]);
+
+  useEffect(() => {
+    if (!shop) return;
+    const row = shop as Shop & { contact_email?: string | null; contact_phone?: string | null };
+    setContactEmail(row.contact_email ?? '');
+    setContactPhone(row.contact_phone ?? '');
+    setIsEditingContact(false);
+  }, [shop]);
 
   useEffect(() => {
     if (!shop) return;
@@ -329,7 +339,7 @@ const SellerDashboardPage = () => {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 container py-12 text-center">
+        <main className="flex-1 container py-8 sm:py-12 px-4 sm:px-6 text-center">
           <Store className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">No shop yet</h1>
           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
@@ -347,8 +357,8 @@ const SellerDashboardPage = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 container py-12">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <main className="flex-1 container py-8 sm:py-12 px-4 sm:px-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
           <div>
             <h1 className="text-3xl font-bold">{shop.name}</h1>
             <p className="text-muted-foreground mt-1">Manage your products and reply to reviews.</p>
@@ -375,33 +385,66 @@ const SellerDashboardPage = () => {
             </p>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSaveContact} className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="contact_email">Email</Label>
-                <Input
-                  id="contact_email"
-                  type="email"
-                  placeholder="shop@example.com"
-                  value={contactEmail}
-                  onChange={(e) => setContactEmail(e.target.value)}
-                />
-              </div>
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="contact_phone">Phone</Label>
-                <Input
-                  id="contact_phone"
-                  type="tel"
-                  placeholder="+263 77 123 4567"
-                  value={contactPhone}
-                  onChange={(e) => setContactPhone(e.target.value)}
-                />
-              </div>
-              <div className="flex items-end">
-                <Button type="submit" disabled={savingContact}>
-                  {savingContact ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
-                </Button>
-              </div>
-            </form>
+            {(() => {
+              const row = shop as Shop & { contact_email?: string | null; contact_phone?: string | null };
+              const hasSavedContact = (row.contact_email?.trim() || row.contact_phone?.trim()) ?? false;
+              const showReadOnly = hasSavedContact && !isEditingContact;
+
+              if (showReadOnly) {
+                return (
+                  <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
+                    <div className="flex-1 space-y-2">
+                      <Label>Email</Label>
+                      <p className="text-sm font-medium text-foreground py-2">{contactEmail || '—'}</p>
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <Label>Phone</Label>
+                      <p className="text-sm font-medium text-foreground py-2">{contactPhone || '—'}</p>
+                    </div>
+                    <div className="flex items-end">
+                      <Button type="button" variant="outline" onClick={() => setIsEditingContact(true)}>
+                        Edit
+                      </Button>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <form onSubmit={handleSaveContact} className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="contact_email">Email</Label>
+                    <Input
+                      id="contact_email"
+                      type="email"
+                      placeholder="shop@example.com"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="contact_phone">Phone</Label>
+                    <Input
+                      id="contact_phone"
+                      type="tel"
+                      placeholder="+263 77 123 4567"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <Button type="submit" disabled={savingContact}>
+                      {savingContact ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                    </Button>
+                    {hasSavedContact && (
+                      <Button type="button" variant="ghost" onClick={() => setIsEditingContact(false)}>
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                </form>
+              );
+            })()}
           </CardContent>
         </Card>
 

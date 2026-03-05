@@ -208,7 +208,7 @@ const OpenShopPage = () => {
       <div className="min-h-screen bg-background">
         <Header />
         <CartDrawer />
-        <div className="container max-w-lg py-20 text-center">
+        <div className="container max-w-lg py-12 sm:py-20 px-4 sm:px-6 text-center">
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
@@ -254,7 +254,7 @@ const OpenShopPage = () => {
       <Header />
       <CartDrawer />
 
-      <div className="container max-w-2xl py-8 md:py-12">
+      <div className="container max-w-2xl py-6 sm:py-8 md:py-12 px-4 sm:px-6">
         {/* Title */}
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold md:text-4xl">Open Your Shop</h1>

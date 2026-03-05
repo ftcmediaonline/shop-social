@@ -93,10 +93,22 @@ const DiscoverPage = () => {
   const [realShopsMap, setRealShopsMap] = useState<Record<string, Shop>>({});
   const [productsLoading, setProductsLoading] = useState(true);
 
-  // Sync search input from URL (e.g. when navigating from header or browser back)
+  const categoryFromUrl = searchParams.get('category');
+
+  // Sync search and category from URL (e.g. when navigating from header or browser back)
   useEffect(() => {
     setSearchQuery(qFromUrl);
   }, [qFromUrl]);
+
+  // Sync category from URL when it has a category param (e.g. deep link or back button)
+  useEffect(() => {
+    if (categoryFromUrl) {
+      setFilters((prev) => ({
+        ...prev,
+        categories: [categoryFromUrl],
+      }));
+    }
+  }, [categoryFromUrl]);
 
   // Fetch real products from verified shops
   useEffect(() => {
@@ -206,15 +218,19 @@ const DiscoverPage = () => {
       const matchesCategory =
         filters.categories.length === 0 ||
         filters.categories.includes(product.category);
+      const hasColorVariant = product.variants?.some((v) => v.type === 'color');
       const matchesColor =
         filters.colors.length === 0 ||
+        !hasColorVariant ||
         (product.variants?.some(
           (v) =>
             v.type === 'color' &&
             v.options.some((opt) => filters.colors.includes(opt))
         ) ?? false);
+      const hasSizeVariant = product.variants?.some((v) => v.type === 'size');
       const matchesSize =
         filters.sizes.length === 0 ||
+        !hasSizeVariant ||
         (product.variants?.some(
           (v) =>
             v.type === 'size' &&
@@ -245,7 +261,7 @@ const DiscoverPage = () => {
       <Header />
       <CartDrawer />
 
-      <div className="container py-8">
+      <div className="container py-6 sm:py-8 px-4 sm:px-6">
         {/* Header */}
         <div className="mb-8">
           <motion.h1
@@ -266,14 +282,14 @@ const DiscoverPage = () => {
         </div>
 
         {/* Search & Filters Row */}
-        <div className="flex gap-3 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="flex flex-col xs:flex-row gap-3 mb-6">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <Input
               placeholder="Search products, categories, shops..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-secondary border-0"
+              className="pl-10 pr-3 py-2.5 sm:py-2 bg-secondary border-0 text-base sm:text-sm"
             />
           </div>
           <FilterSheet
@@ -327,7 +343,7 @@ const DiscoverPage = () => {
                 Size: {size}
               </span>
             ))}
-            {(filters.priceRange[0] > 0 || filters.priceRange[1] < maxPrice) && (
+            {(filters.priceRange[0] > 0 || filters.priceRange[1] < Math.max(maxPrice, initialMaxPrice)) && (
               <span className="px-2 py-1 text-xs rounded-full bg-accent">
                 ${filters.priceRange[0]} - ${filters.priceRange[1]}
               </span>
