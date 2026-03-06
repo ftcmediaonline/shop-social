@@ -8,9 +8,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
-import { Store, Check, X, ShieldAlert, Loader2, Users, Shield, Trash2, ExternalLink } from 'lucide-react';
+import { Store, Check, X, ShieldAlert, Loader2, Users, Shield, Trash2, ExternalLink, Star, TrendingUp } from 'lucide-react';
 
 type Shop = Tables<'shops'>;
+type Product = Tables<'products'> & { shops?: { name: string; slug: string } | null; product_images?: { image_url: string }[] };
 
 type ProfileRow = {
   id: string;
@@ -37,6 +38,10 @@ const AdminDashboardPage = () => {
   const [deletingShopId, setDeletingShopId] = useState<string | null>(null);
   const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [togglingFeaturedId, setTogglingFeaturedId] = useState<string | null>(null);
+  const [togglingTrendingId, setTogglingTrendingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -96,6 +101,40 @@ const AdminDashboardPage = () => {
       setUsersLoading(false);
     })();
   }, [profileRole]);
+
+  useEffect(() => {
+    if (profileRole !== 'admin') return;
+    (async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*, product_images(image_url), shops(name, slug)')
+        .order('created_at', { ascending: false });
+      if (!error && data) setAllProducts(data as Product[]);
+      setProductsLoading(false);
+    })();
+  }, [profileRole]);
+
+  const handleToggleFeatured = async (shop: Shop) => {
+    setTogglingFeaturedId(shop.id);
+    const next = !(shop as Shop & { is_featured?: boolean }).is_featured;
+    const { error } = await supabase.from('shops').update({ is_featured: next }).eq('id', shop.id);
+    setTogglingFeaturedId(null);
+    if (!error) {
+      setAllShops((prev) => prev.map((s) => (s.id === shop.id ? { ...s, is_featured: next } : s)));
+      toast({ title: next ? 'Shop featured' : 'Shop unfeatured' });
+    } else toast({ title: 'Failed to update', description: error.message, variant: 'destructive' });
+  };
+
+  const handleToggleTrending = async (product: Product) => {
+    setTogglingTrendingId(product.id);
+    const next = !(product as Product & { is_trending?: boolean }).is_trending;
+    const { error } = await supabase.from('products').update({ is_trending: next }).eq('id', product.id);
+    setTogglingTrendingId(null);
+    if (!error) {
+      setAllProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, is_trending: next } : p)));
+      toast({ title: next ? 'Product set as trending' : 'Product removed from trending' });
+    } else toast({ title: 'Failed to update', description: error.message, variant: 'destructive' });
+  };
 
   const handleApprove = async (shop: Shop) => {
     setApprovingId(shop.id);
@@ -310,6 +349,7 @@ const AdminDashboardPage = () => {
                       <th className="text-left py-3 font-medium">Slug</th>
                       <th className="text-left py-3 font-medium">Owner</th>
                       <th className="text-left py-3 font-medium">Status</th>
+                      <th className="text-left py-3 font-medium">Featured</th>
                       <th className="text-right py-3 font-medium">Actions</th>
                     </tr>
                   </thead>
@@ -328,6 +368,20 @@ const AdminDashboardPage = () => {
                             {shop.is_verified ? 'Verified' : 'Pending'}
                           </span>
                         </td>
+                        <td className="py-3">
+                          {shop.is_verified && (
+                            <Button
+                              size="sm"
+                              variant={(shop as Shop & { is_featured?: boolean }).is_featured ? 'default' : 'outline'}
+                              onClick={() => handleToggleFeatured(shop)}
+                              disabled={togglingFeaturedId === shop.id}
+                              className="gap-1"
+                            >
+                              {togglingFeaturedId === shop.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Star className={`h-3.5 w-3.5 ${(shop as Shop & { is_featured?: boolean }).is_featured ? 'fill-current' : ''}`} />}
+                              {(shop as Shop & { is_featured?: boolean }).is_featured ? 'Featured' : 'Feature'}
+                            </Button>
+                          )}
+                        </td>
                         <td className="py-3 text-right">
                           <div className="flex justify-end gap-2">
                             <Button size="sm" variant="outline" asChild>
@@ -342,6 +396,69 @@ const AdminDashboardPage = () => {
                               {deletingShopId === shop.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-1" /> Delete</>}
                             </Button>
                           </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Trending Products */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Trending Products ({allProducts.filter((p) => (p as Product & { is_trending?: boolean }).is_trending).length} selected)
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">Toggle which products appear in the Trending section on the home page.</p>
+          </CardHeader>
+          <CardContent>
+            {productsLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : allProducts.length === 0 ? (
+              <p className="text-muted-foreground text-center py-12">No products yet.</p>
+            ) : (
+              <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-background">
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 font-medium">Product</th>
+                      <th className="text-left py-3 font-medium">Shop</th>
+                      <th className="text-left py-3 font-medium">Price</th>
+                      <th className="text-right py-3 font-medium">Trending</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allProducts.map((product) => (
+                      <tr key={product.id} className="border-b border-border/50">
+                        <td className="py-3">
+                          <div className="flex items-center gap-2">
+                            {product.product_images?.[0]?.image_url ? (
+                              <img src={product.product_images[0].image_url} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" />
+                            ) : (
+                              <div className="h-10 w-10 rounded-lg bg-secondary shrink-0" />
+                            )}
+                            <span className="font-medium truncate max-w-[180px]">{product.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 text-muted-foreground">{product.shops?.name ?? '—'}</td>
+                        <td className="py-3">${product.price.toFixed(2)}</td>
+                        <td className="py-3 text-right">
+                          <Button
+                            size="sm"
+                            variant={(product as Product & { is_trending?: boolean }).is_trending ? 'default' : 'outline'}
+                            onClick={() => handleToggleTrending(product)}
+                            disabled={togglingTrendingId === product.id}
+                            className="gap-1"
+                          >
+                            {togglingTrendingId === product.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <TrendingUp className="h-3.5 w-3.5" />}
+                            {(product as Product & { is_trending?: boolean }).is_trending ? 'Trending' : 'Add'}
+                          </Button>
                         </td>
                       </tr>
                     ))}

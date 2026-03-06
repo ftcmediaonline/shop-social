@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import tengaLogo from '@/assets/tenga-logo.png';
+import tengaLogoWhite from '@/assets/tenga-logo-white.png';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -89,7 +90,7 @@ const Header = () => {
       <div className="container flex h-14 sm:h-16 items-center justify-between gap-2 sm:gap-4 px-4 sm:px-6">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 min-h-[44px] min-w-[44px] -ml-2 flex-shrink-0">
-          <img src={tengaLogo} alt="Tenga Virtual Mall" className="h-8 w-auto sm:h-10" />
+          <img src={theme === 'dark' ? tengaLogoWhite : tengaLogo} alt="Tenga Virtual Mall" className="h-11 w-auto sm:h-10" />
         </Link>
 
         {/* Desktop Navigation */}

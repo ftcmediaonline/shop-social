@@ -424,7 +424,9 @@ const OpenShopPage = () => {
               <div>
                 <p className="mb-4 text-sm text-muted-foreground">Select the category that best describes your shop</p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {categories.map((cat) => (
+                  {categories.map((cat) => {
+                    const Icon = cat.icon;
+                    return (
                     <button
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.name)}
@@ -434,10 +436,11 @@ const OpenShopPage = () => {
                           : 'border-border hover:border-primary/30 hover:bg-secondary'
                       }`}
                     >
-                      <span className="text-2xl">{cat.icon}</span>
+                      <Icon className="h-6 w-6 text-primary" />
                       <span className="text-sm font-medium">{cat.name}</span>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

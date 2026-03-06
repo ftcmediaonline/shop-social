@@ -52,7 +52,7 @@
     --warning-foreground: 0 0% 100%;
 
     --gradient-primary: linear-gradient(135deg, hsl(215 60% 22%) 0%, hsl(215 40% 35%) 100%);
-    --gradient-hero: linear-gradient(180deg, hsl(215 40% 95%) 0%, hsl(0 0% 100%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(215 50% 96%) 0%, hsl(215 40% 92%) 35%, hsl(215 35% 88%) 65%, hsl(24 45% 94%) 100%);
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(0 0% 98%) 100%);
 
     --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.03);
@@ -142,6 +142,10 @@
 
   .bg-gradient-hero {
     background-image: var(--gradient-hero);
+  }
+
+  .dark .bg-gradient-hero {
+    background: linear-gradient(180deg, hsl(222 35% 14%) 0%, hsl(222 40% 10%) 40%, hsl(215 50% 8%) 70%, hsl(24 40% 12%) 100%);
   }
 
   .shadow-card {

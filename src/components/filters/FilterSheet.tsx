@@ -107,7 +107,9 @@ const FilterSheet = ({ filters, onFiltersChange, maxPrice = 500 }: FilterSheetPr
           <div>
             <h3 className="font-medium mb-3">Categories</h3>
             <div className="grid grid-cols-2 gap-2">
-              {categories.map((category) => (
+              {categories.map((category) => {
+                const Icon = category.icon;
+                return (
                 <label
                   key={category.id}
                   className="flex items-center gap-2 cursor-pointer"
@@ -118,9 +120,10 @@ const FilterSheet = ({ filters, onFiltersChange, maxPrice = 500 }: FilterSheetPr
                       handleCategoryChange(category.name, checked as boolean)
                     }
                   />
-                  <span className="text-sm">{category.icon} {category.name}</span>
+                  <span className="text-sm flex items-center gap-2"><Icon className="h-4 w-4" /> {category.name}</span>
                 </label>
-              ))}
+                );
+              })}
             </div>
           </div>
 

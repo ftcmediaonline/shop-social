@@ -49,7 +49,8 @@ const CategoriesPage = () => {
 
         {/* Categories Grid */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {categories.map((category, index) => {
+{categories.map((category, index) => {
+            const Icon = category.icon;
             const productCount = getCategoryProductCount(category.name);
             return (
               <motion.div
@@ -75,7 +76,7 @@ const CategoriesPage = () => {
                   {/* Content */}
                   <div className="absolute bottom-0 left-0 right-0 p-4">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-2xl">{category.icon}</span>
+                      <Icon className="h-6 w-6 text-white" />
                       <h3 className="font-semibold text-white text-lg">
                         {category.name}
                       </h3>

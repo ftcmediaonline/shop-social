@@ -238,7 +238,7 @@ const ShopsPage = () => {
             <p className="text-sm text-muted-foreground mb-4">
               Showing {filteredShops.length} shop{filteredShops.length !== 1 && 's'}
             </p>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {filteredShops.map((shop, index) => (
                 <ShopCard key={shop.id} shop={shop} index={index} />
               ))}

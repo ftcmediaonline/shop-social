@@ -53,11 +53,13 @@ export interface CartItem {
   selectedVariants?: Record<string, string>;
 }
 
+import type { LucideIcon } from 'lucide-react';
+
 export interface Category {
   id: string;
   name: string;
   slug: string;
-  icon: string;
+  icon: LucideIcon;
   productCount: number;
 }
 

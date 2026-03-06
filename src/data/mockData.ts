@@ -1,14 +1,15 @@
+import { Shirt, Smartphone, Home, Sparkles, Dumbbell, BookOpen, UtensilsCrossed, Palette } from 'lucide-react';
 import { Shop, Product, Category } from '@/types';
 
 export const categories: Category[] = [
-  { id: '1', name: 'Fashion', slug: 'fashion', icon: '👗', productCount: 1240 },
-  { id: '2', name: 'Electronics', slug: 'electronics', icon: '📱', productCount: 856 },
-  { id: '3', name: 'Home & Living', slug: 'home-living', icon: '🏠', productCount: 634 },
-  { id: '4', name: 'Beauty', slug: 'beauty', icon: '💄', productCount: 445 },
-  { id: '5', name: 'Sports', slug: 'sports', icon: '⚽', productCount: 312 },
-  { id: '6', name: 'Books', slug: 'books', icon: '📚', productCount: 567 },
-  { id: '7', name: 'Food & Drinks', slug: 'food-drinks', icon: '🍕', productCount: 289 },
-  { id: '8', name: 'Art & Crafts', slug: 'art-crafts', icon: '🎨', productCount: 178 },
+  { id: '1', name: 'Fashion', slug: 'fashion', icon: Shirt, productCount: 1240 },
+  { id: '2', name: 'Electronics', slug: 'electronics', icon: Smartphone, productCount: 856 },
+  { id: '3', name: 'Home & Living', slug: 'home-living', icon: Home, productCount: 634 },
+  { id: '4', name: 'Beauty', slug: 'beauty', icon: Sparkles, productCount: 445 },
+  { id: '5', name: 'Sports', slug: 'sports', icon: Dumbbell, productCount: 312 },
+  { id: '6', name: 'Books', slug: 'books', icon: BookOpen, productCount: 567 },
+  { id: '7', name: 'Food & Drinks', slug: 'food-drinks', icon: UtensilsCrossed, productCount: 289 },
+  { id: '8', name: 'Art & Crafts', slug: 'art-crafts', icon: Palette, productCount: 178 },
 ];
 
 export const shops: Shop[] = [

@@ -312,7 +312,9 @@ const DiscoverPage = () => {
           >
             All
           </Button>
-          {categories.map((category) => (
+          {categories.map((category) => {
+            const Icon = category.icon;
+            return (
             <Button
               key={category.id}
               variant={filters.categories.includes(category.name) ? 'default' : 'outline'}
@@ -323,10 +325,11 @@ const DiscoverPage = () => {
                 filters.categories.includes(category.name) && "bg-gradient-primary"
               )}
             >
-              <span className="mr-1.5">{category.icon}</span>
+              <Icon className="mr-1.5 h-4 w-4" />
               {category.name}
             </Button>
-          ))}
+            );
+          })}
         </div>
 
         {/* Active Filters Display */}

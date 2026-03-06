@@ -273,6 +273,7 @@ export type Database = {
           rating: number | null
           review_count: number | null
           like_count: number | null
+          is_trending: boolean | null
           created_at: string | null
         }
         Insert: {
@@ -289,6 +290,7 @@ export type Database = {
           rating?: number | null
           review_count?: number | null
           like_count?: number | null
+          is_trending?: boolean | null
           created_at?: string | null
         }
         Update: {
@@ -305,6 +307,7 @@ export type Database = {
           rating?: number | null
           review_count?: number | null
           like_count?: number | null
+          is_trending?: boolean | null
           created_at?: string | null
         }
         Relationships: [
@@ -485,6 +488,7 @@ export type Database = {
           category_id: string | null
           location: string | null
           is_verified: boolean | null
+          is_featured: boolean | null
           rating: number | null
           review_count: number | null
           follower_count: number | null
@@ -502,6 +506,7 @@ export type Database = {
           category_id?: string | null
           location?: string | null
           is_verified?: boolean | null
+          is_featured?: boolean | null
           rating?: number | null
           review_count?: number | null
           follower_count?: number | null
@@ -519,6 +524,7 @@ export type Database = {
           category_id?: string | null
           location?: string | null
           is_verified?: boolean | null
+          is_featured?: boolean | null
           rating?: number | null
           review_count?: number | null
           follower_count?: number | null

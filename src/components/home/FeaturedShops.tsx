@@ -1,12 +1,63 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import ShopCard from '@/components/shop/ShopCard';
 import { getFeaturedShops } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
+import type { Shop } from '@/types';
+
+const PLACEHOLDER_LOGO = 'https://placehold.co/200x200?text=Shop';
+const PLACEHOLDER_BANNER = 'https://placehold.co/1200x400?text=Shop';
+
+function mapDbShopToShop(row: {
+  id: string;
+  name: string;
+  slug: string;
+  logo: string | null;
+  banner: string | null;
+  bio: string | null;
+  location: string | null;
+  is_verified: boolean | null;
+  categories?: { name: string } | null;
+}): Shop {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    logo: row.logo ?? PLACEHOLDER_LOGO,
+    banner: row.banner ?? PLACEHOLDER_BANNER,
+    bio: row.bio ?? '',
+    category: row.categories?.name ?? '—',
+    rating: 0,
+    reviewCount: 0,
+    followerCount: 0,
+    productCount: 0,
+    isVerified: row.is_verified ?? false,
+    location: row.location ?? undefined,
+  };
+}
 
 const FeaturedShops = () => {
-  const featuredShops = getFeaturedShops();
+  const [featuredShops, setFeaturedShops] = useState<Shop[]>(() => getFeaturedShops());
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase
+        .from('shops')
+        .select('id, name, slug, logo, banner, bio, location, is_verified, categories(name)')
+        .eq('is_verified', true)
+        .eq('is_featured', true)
+        .order('created_at', { ascending: false })
+        .limit(8);
+      setLoading(false);
+      if (!error && data && data.length > 0) {
+        setFeaturedShops(data.map((r) => mapDbShopToShop(r)));
+      }
+    })();
+  }, []);
 
   return (
     <section className="py-8 sm:py-12 md:py-16">
@@ -41,21 +92,27 @@ const FeaturedShops = () => {
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {featuredShops.map((shop, index) => (
-            <ShopCard key={shop.id} shop={shop} index={index} />
-          ))}
-        </div>
-
-        {/* Mobile CTA */}
-        <div className="mt-6 text-center sm:hidden">
-          <Button asChild variant="outline">
-            <Link to="/shops">
-              View All Shops
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {featuredShops.map((shop, index) => (
+                <ShopCard key={shop.id} shop={shop} index={index} />
+              ))}
+            </div>
+            <div className="mt-6 text-center sm:hidden">
+              <Button asChild variant="outline">
+                <Link to="/shops">
+                  View All Shops
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </section>
   );

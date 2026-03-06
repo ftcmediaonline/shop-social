@@ -1,13 +1,16 @@
 import tengaLogo from '@/assets/tenga-logo.png';
+import tengaLogoWhite from '@/assets/tenga-logo-white.png';
+import { useTheme } from '@/context/ThemeContext';
 
 const Footer = () => {
+  const { theme } = useTheme();
   return (
     <footer className="border-t border-border py-8 sm:py-12 mt-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
       <div className="container px-4 sm:px-6">
         <div className="grid grid-cols-2 gap-6 sm:gap-8 md:grid-cols-4">
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <img src={tengaLogo} alt="Tenga Virtual Mall" className="h-10 sm:h-12 w-auto" />
+              <img src={theme === 'dark' ? tengaLogoWhite : tengaLogo} alt="Tenga Virtual Mall" className="h-10 sm:h-12 w-auto" />
             </div>
             <p className="text-sm text-muted-foreground">
               Your favorite shops, all in one place.

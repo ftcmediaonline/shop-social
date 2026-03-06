@@ -8,13 +8,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useTheme } from '@/context/ThemeContext';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import tengaLogo from '@/assets/tenga-logo.png';
+import tengaLogoWhite from '@/assets/tenga-logo-white.png';
 
 const AuthPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { theme } = useTheme();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -89,7 +92,7 @@ const AuthPage = () => {
           className="w-full max-w-md"
         >
           <div className="text-center mb-8">
-            <img src={tengaLogo} alt="Tenga" className="h-12 w-auto mx-auto mb-4" />
+            <img src={theme === 'dark' ? tengaLogoWhite : tengaLogo} alt="Tenga" className="h-12 w-auto mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-foreground">
               {isLogin ? 'Welcome back' : 'Create your account'}
             </h1>

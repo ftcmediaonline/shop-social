@@ -267,16 +267,19 @@ const SearchPage = () => {
                   Categories ({filteredCategories.length})
                 </h2>
                 <div className="flex flex-wrap gap-3">
-                  {filteredCategories.map((cat) => (
+                  {filteredCategories.map((cat) => {
+                    const Icon = cat.icon;
+                    return (
                     <Link
                       key={cat.id}
                       to={`/discover?category=${encodeURIComponent(cat.name)}`}
                       className="inline-flex items-center gap-2 rounded-xl bg-card px-4 py-3 shadow-card hover:shadow-card-hover transition-shadow border border-border"
                     >
-                      <span className="text-2xl">{cat.icon}</span>
+                      <Icon className="h-5 w-5 text-primary" />
                       <span className="font-medium">{cat.name}</span>
                     </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             )}
@@ -287,7 +290,7 @@ const SearchPage = () => {
                   <Store className="h-5 w-5" />
                   Shops ({filteredShops.length})
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {filteredShops.map((shop, i) => (
                     <ShopCard key={shop.id} shop={shop} index={i} />
                   ))}

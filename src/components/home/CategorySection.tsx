@@ -29,7 +29,9 @@ const CategorySection = () => {
 
         {/* Categories Grid - 2 cols mobile, 4 tablet, 8 desktop */}
         <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4 lg:grid-cols-8">
-          {categories.map((category, index) => (
+          {categories.map((category, index) => {
+            const Icon = category.icon;
+            return (
             <motion.div
               key={category.id}
               initial={{ opacity: 0, y: 20 }}
@@ -41,7 +43,7 @@ const CategorySection = () => {
                 to={`/discover?category=${encodeURIComponent(category.name)}`}
                 className="group flex flex-col items-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl bg-background p-4 sm:p-6 shadow-card transition-all hover:shadow-card-hover active:scale-[0.98] min-h-[100px] sm:min-h-0 justify-center"
               >
-                <span className="text-3xl sm:text-4xl">{category.icon}</span>
+                <Icon className="h-8 w-8 sm:h-10 sm:w-10 text-primary" />
                 <div className="text-center">
                   <span className="block text-xs sm:text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">
                     {category.name}
@@ -52,7 +54,8 @@ const CategorySection = () => {
                 </div>
               </Link>
             </motion.div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

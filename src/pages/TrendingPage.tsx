@@ -1,16 +1,101 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, Heart } from 'lucide-react';
+import { TrendingUp, Heart, Loader2 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import CartDrawer from '@/components/layout/CartDrawer';
 import Footer from '@/components/layout/Footer';
 import ProductCard from '@/components/product/ProductCard';
 import { products, getShopById } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
+import type { Product, Shop } from '@/types';
+
+const PLACEHOLDER_IMAGE = 'https://placehold.co/600x600?text=Product';
+const PLACEHOLDER_LOGO = 'https://placehold.co/200x200?text=Shop';
+
+function mapDbProductToProduct(row: {
+  id: string;
+  shop_id: string;
+  name: string;
+  slug: string;
+  price: number;
+  original_price: number | null;
+  like_count: number | null;
+  created_at: string | null;
+  product_images?: { image_url: string }[];
+  shops?: { id: string; name: string; slug: string; logo: string | null; categories?: { name: string } | null } | null;
+}): Product {
+  const images = row.product_images?.length
+    ? row.product_images.map((i) => i.image_url)
+    : [PLACEHOLDER_IMAGE];
+  const categoryName = row.shops?.categories?.name ?? '';
+  return {
+    id: row.id,
+    shopId: row.shop_id,
+    name: row.name,
+    slug: row.slug,
+    price: row.price,
+    originalPrice: row.original_price ?? undefined,
+    images,
+    description: '',
+    category: categoryName,
+    inStock: true,
+    rating: 0,
+    reviewCount: 0,
+    likeCount: row.like_count ?? 0,
+    createdAt: row.created_at ?? '',
+  };
+}
+
+function mapDbRowToShop(row: {
+  id: string;
+  name: string;
+  slug: string;
+  logo: string | null;
+  categories?: { name: string } | null;
+}): Shop {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    logo: row.logo ?? PLACEHOLDER_LOGO,
+    banner: 'https://placehold.co/1200x400?text=Shop',
+    bio: '',
+    category: row.categories?.name ?? '—',
+    rating: 0,
+    reviewCount: 0,
+    followerCount: 0,
+    productCount: 0,
+    isVerified: true,
+  };
+}
 
 const TrendingPage = () => {
-  // Get top 20 most liked products
-  const trendingProducts = [...products]
-    .sort((a, b) => b.likeCount - a.likeCount)
-    .slice(0, 20);
+  const [trendingProducts, setTrendingProducts] = useState<Product[]>(
+    () => [...products].sort((a, b) => b.likeCount - a.likeCount).slice(0, 20)
+  );
+  const [shopsMap, setShopsMap] = useState<Record<string, Shop>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data: productRows, error } = await supabase
+        .from('products')
+        .select('*, product_images(image_url), shops(id, name, slug, logo, categories(name))')
+        .eq('is_trending', true)
+        .limit(20);
+      setLoading(false);
+      if (!error && productRows && productRows.length > 0) {
+        const shopMap: Record<string, Shop> = {};
+        productRows.forEach((r) => {
+          if (r.shops) {
+            shopMap[r.shop_id] = mapDbRowToShop(r.shops as { id: string; name: string; slug: string; logo: string | null; categories?: { name: string } | null });
+          }
+        });
+        setShopsMap(shopMap);
+        setTrendingProducts(productRows.map((row) => mapDbProductToProduct(row)));
+      }
+    })();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -41,9 +126,14 @@ const TrendingPage = () => {
         </div>
 
         {/* Trending Products */}
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {trendingProducts.map((product, index) => {
-            const shop = getShopById(product.shopId);
+            const shop = shopsMap[product.shopId] ?? getShopById(product.shopId);
             return (
               <div key={product.id} className="relative">
                 {/* Rank Badge */}
@@ -76,6 +166,7 @@ const TrendingPage = () => {
             );
           })}
         </div>
+        )}
 
         {/* Empty State */}
         {trendingProducts.length === 0 && (
