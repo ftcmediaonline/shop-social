@@ -46,18 +46,18 @@ const Header = () => {
       setHasShop(false);
       return;
     }
-    supabase
+    (supabase as any)
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .maybeSingle()
-      .then(({ data }) => setIsAdmin(data?.role === 'admin'));
-    supabase
+      .then(({ data }: any) => setIsAdmin(data?.role === 'admin'));
+    (supabase as any)
       .from('shops')
       .select('id')
       .eq('owner_id', user.id)
       .maybeSingle()
-      .then(({ data }) => setHasShop(!!data));
+      .then(({ data }: any) => setHasShop(!!data));
   }, [user]);
 
   const navLinks = [
