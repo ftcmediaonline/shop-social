@@ -203,7 +203,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const removeFromCart = (itemId: string) => {
     if (user && itemId.length === 36 && !itemId.startsWith('temp-')) {
-      (supabase.from('cart_items') as any).delete().eq('id', itemId).eq('user_id', user.id).then(() => {});
+      (supabase as any).from('cart_items').delete().eq('id', itemId).eq('user_id', user.id).then(() => {});
     }
     setItems((prev) => prev.filter((item) => item.id !== itemId));
   };
