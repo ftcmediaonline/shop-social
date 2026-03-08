@@ -82,8 +82,8 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
       if (wishlistIds.includes(productId)) return;
       const next = [...wishlistIds, productId];
       setWishlistIds(next);
-      (supabase
-        .from('product_likes') as any)
+      (supabase as any)
+        .from('product_likes')
         .insert({ user_id: user.id, product_id: productId })
         .then(() => {});
     },
