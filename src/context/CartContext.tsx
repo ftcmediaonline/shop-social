@@ -159,8 +159,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const newQty = newItems[existingItemIndex].quantity + quantity;
         newItems[existingItemIndex] = { ...newItems[existingItemIndex], quantity: newQty };
         if (user && typeof newItems[existingItemIndex].id === 'string' && newItems[existingItemIndex].id.length === 36) {
-          (supabase
-            .from('cart_items') as any)
+          (supabase as any)
+            .from('cart_items')
             .update({ quantity: newQty })
             .eq('id', newItems[existingItemIndex].id)
             .then(() => {});
