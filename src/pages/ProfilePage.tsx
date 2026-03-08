@@ -29,11 +29,11 @@ import { supabase } from '@/integrations/supabase/client';
 type ProfileRow = {
   id: string;
   user_id: string | null;
-  username: string | null;
+  username?: string | null;
   full_name: string | null;
   avatar_url: string | null;
-  phone: string | null;
-  role: string | null;
+  phone?: string | null;
+  role?: string | null;
 };
 
 const ProfilePage = () => {
