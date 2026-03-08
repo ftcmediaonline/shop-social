@@ -176,8 +176,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         selectedVariants: variants,
       };
       if (user) {
-        supabase
-          .from('cart_items')
+        (supabase
+          .from('cart_items') as any)
           .insert({
             user_id: user.id,
             product_id: product.id,
