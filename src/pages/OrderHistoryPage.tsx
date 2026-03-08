@@ -8,7 +8,7 @@ import CartDrawer from '@/components/layout/CartDrawer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/untyped';
 import type { Tables } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
 

@@ -9,7 +9,7 @@ import { useWishlist } from '@/context/WishlistContext';
 import tengaLogo from '@/assets/tenga-logo.png';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/untyped';
 import {
   DropdownMenu,
   DropdownMenuContent,
