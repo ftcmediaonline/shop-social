@@ -61,7 +61,7 @@ const ProfilePage = () => {
         .or(`id.eq.${user.id},user_id.eq.${user.id}`)
         .maybeSingle();
 
-      const row = profileData as ProfileRow | null;
+      const row = profileData as unknown as ProfileRow | null;
       setProfile(row ?? null);
       if (row) {
         setEditName(row.full_name ?? '');
