@@ -217,7 +217,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       prev.map((item) => {
         if (item.id !== itemId) return item;
         if (user && itemId.length === 36 && !itemId.startsWith('temp-')) {
-          (supabase.from('cart_items') as any).update({ quantity }).eq('id', itemId).eq('user_id', user.id).then(() => {});
+          (supabase as any).from('cart_items').update({ quantity }).eq('id', itemId).eq('user_id', user.id).then(() => {});
         }
         return { ...item, quantity };
       })
