@@ -15,7 +15,7 @@ import { getReviewsByProductId } from '@/data/reviewsData';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/untyped';
 import type { Product, Shop, Review } from '@/types';
 import { cn } from '@/lib/utils';
 
