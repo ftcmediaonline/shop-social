@@ -19,26 +19,11 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/untyped';
-import type { Tables } from '@/integrations/supabase/types';
-import {
-  Package,
-  Plus,
-  Star,
-  MessageSquare,
-  Loader2,
-  Store,
-  Settings,
-  ShoppingCart,
-  Phone,
-  Mail,
-} from 'lucide-react';
 
-type Shop = Tables<'shops'>;
-type Product = Tables<'products'>;
-type Review = Tables<'reviews'> & { products?: { name: string } | null };
-type OrderRow = Tables<'orders'> & {
-  order_items?: (Tables<'order_items'> & { products?: { name: string } | null })[];
-};
+type Shop = any;
+type Product = any;
+type Review = any;
+type OrderRow = any;
 
 type CustomerProfile = { id: string; full_name: string | null; username: string };
 

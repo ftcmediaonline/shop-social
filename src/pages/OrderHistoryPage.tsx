@@ -9,13 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/untyped';
-import type { Tables } from '@/integrations/supabase/types';
 import { cn } from '@/lib/utils';
 
-type OrderRow = Tables<'orders'> & {
-  order_items?: (Tables<'order_items'> & { products?: { name: string; slug: string } | null })[];
-  shops?: { name: string } | null;
-};
+type OrderRow = any;
 
 const OrderHistoryPage = () => {
   const { user, loading: authLoading } = useAuth();
