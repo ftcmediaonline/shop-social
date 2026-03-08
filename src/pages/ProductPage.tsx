@@ -15,7 +15,7 @@ import { getReviewsByProductId } from '@/data/reviewsData';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/untyped';
+import { db as supabase } from '@/integrations/supabase/client-untyped';
 import type { Product, Shop, Review } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -543,7 +543,7 @@ const ProductPage = () => {
                   {'ownerReply' in review && review.ownerReply && (
                     <div className="mt-2 pl-3 border-l-2 border-primary/30 text-sm text-muted-foreground">
                       <span className="font-medium text-foreground">Seller: </span>
-                      {review.ownerReply as string}
+                      {(review as any).ownerReply}
                     </div>
                   )}
                 </div>

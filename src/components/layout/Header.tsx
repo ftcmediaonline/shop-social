@@ -9,7 +9,7 @@ import { useWishlist } from '@/context/WishlistContext';
 import tengaLogo from '@/assets/tenga-logo.png';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/untyped';
+import { supabase } from '@/integrations/supabase/client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,13 +46,13 @@ const Header = () => {
       setHasShop(false);
       return;
     }
-    supabase
+    (supabase as any)
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }: any) => setIsAdmin(data?.role === 'admin'));
-    supabase
+    (supabase as any)
       .from('shops')
       .select('id')
       .eq('owner_id', user.id)

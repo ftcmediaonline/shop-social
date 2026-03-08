@@ -6,19 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/untyped';
-import { Store, Check, X, ShieldAlert, Loader2, Users, Shield, Trash2, ExternalLink, Mail } from 'lucide-react';
-import PromotionalEmailSender from '@/components/admin/PromotionalEmailSender';
+import { supabase } from '@/integrations/supabase/client';
+import { Store, Check, X, ShieldAlert, Loader2, Users, Shield, Trash2, ExternalLink } from 'lucide-react';
 
 type Shop = {
   id: string;
   name: string;
   slug: string;
-  bio: string | null;
   logo: string | null;
+  banner: string | null;
+  bio: string | null;
   owner_id: string;
   is_verified: boolean;
-  created_at: string;
+  created_at: string | null;
 };
 
 type ProfileRow = {
@@ -28,8 +28,6 @@ type ProfileRow = {
   role: string | null;
   created_at: string | null;
 };
-
-const sb = supabase as any;
 
 const AdminDashboardPage = () => {
   const { user, loading: authLoading } = useAuth();
@@ -55,7 +53,11 @@ const AdminDashboardPage = () => {
       return;
     }
     (async () => {
-      const { data } = await sb.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      const { data } = await (supabase as any)
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
       setProfileRole(data?.role ?? null);
       setProfileLoading(false);
     })();
@@ -65,17 +67,20 @@ const AdminDashboardPage = () => {
     if (profileRole !== 'admin') return;
     (async () => {
       const [pendingRes, allRes] = await Promise.all([
-        sb.from('shops').select('*').eq('is_verified', false).order('created_at', { ascending: false }),
-        sb.from('shops').select('*').order('created_at', { ascending: false }),
+        (supabase as any).from('shops').select('*').eq('is_verified', false).order('created_at', { ascending: false }),
+        (supabase as any).from('shops').select('*').order('created_at', { ascending: false }),
       ]);
-      const pending = (pendingRes.data ?? []) as Shop[];
-      const all = (allRes.data ?? []) as Shop[];
-      setPendingShops(pending);
-      setAllShops(all);
+      const pending = pendingRes.data ?? [];
+      const all = allRes.data ?? [];
+      if (!pendingRes.error) setPendingShops(pending);
+      if (!allRes.error) setAllShops(all);
       const ownerIds = [...new Set([...pending, ...all].map((s) => s.owner_id).filter(Boolean))] as string[];
       const ownerMap: Record<string, { full_name: string | null; username: string | null }> = {};
       if (ownerIds.length > 0) {
-        const { data: profiles } = await sb.from('profiles').select('id, full_name, username').in('id', ownerIds);
+        const { data: profiles } = await (supabase as any)
+          .from('profiles')
+          .select('id, full_name, username')
+          .in('id', ownerIds);
         (profiles ?? []).forEach((row: any) => {
           ownerMap[row.id] = { full_name: row.full_name, username: row.username };
         });
@@ -92,15 +97,18 @@ const AdminDashboardPage = () => {
   useEffect(() => {
     if (profileRole !== 'admin') return;
     (async () => {
-      const { data, error } = await sb.from('profiles').select('id, full_name, username, role, created_at').order('created_at', { ascending: false });
-      if (!error) setUsers((data as ProfileRow[]) ?? []);
+      const { data, error } = await (supabase as any)
+        .from('profiles')
+        .select('id, full_name, username, role, created_at')
+        .order('created_at', { ascending: false });
+      if (!error) setUsers((data as unknown as ProfileRow[]) ?? []);
       setUsersLoading(false);
     })();
   }, [profileRole]);
 
   const handleApprove = async (shop: Shop) => {
     setApprovingId(shop.id);
-    const { error } = await sb.from('shops').update({ is_verified: true }).eq('id', shop.id);
+    const { error } = await (supabase as any).from('shops').update({ is_verified: true }).eq('id', shop.id);
     setApprovingId(null);
     if (!error) {
       setPendingShops((prev) => prev.filter((s) => s.id !== shop.id));
@@ -112,7 +120,7 @@ const AdminDashboardPage = () => {
   const handleReject = async (shop: Shop) => {
     if (!confirm(`Are you sure you want to reject "${shop.name}"? This will remove the shop application.`)) return;
     setRejectingId(shop.id);
-    const { error } = await sb.from('shops').delete().eq('id', shop.id);
+    const { error } = await (supabase as any).from('shops').delete().eq('id', shop.id);
     setRejectingId(null);
     if (!error) {
       setPendingShops((prev) => prev.filter((s) => s.id !== shop.id));
@@ -124,7 +132,7 @@ const AdminDashboardPage = () => {
   const handleDeleteShop = async (shop: Shop) => {
     if (!confirm(`Are you sure you want to permanently delete "${shop.name}"? This cannot be undone.`)) return;
     setDeletingShopId(shop.id);
-    const { error } = await sb.from('shops').delete().eq('id', shop.id);
+    const { error } = await (supabase as any).from('shops').delete().eq('id', shop.id);
     setDeletingShopId(null);
     if (!error) {
       setAllShops((prev) => prev.filter((s) => s.id !== shop.id));
@@ -140,7 +148,7 @@ const AdminDashboardPage = () => {
       : `Are you sure you want to remove admin access from "${name}"? They will no longer be able to access the admin dashboard.`;
     if (!confirm(message)) return;
     setUpdatingRoleId(profile.id);
-    const { error } = await sb.rpc('set_user_role', {
+    const { error } = await (supabase as any).rpc('set_user_role', {
       target_profile_id: profile.id,
       new_role: makeAdmin ? 'admin' : 'user',
     });
@@ -198,7 +206,7 @@ const AdminDashboardPage = () => {
           <ShieldAlert className="h-12 w-12 text-destructive" />
           <h1 className="text-xl font-semibold">Access denied</h1>
           <p className="text-muted-foreground text-center max-w-md">
-            You don't have permission to view this page. Only administrators can access the admin dashboard.
+            You don’t have permission to view this page. Only administrators can access the admin dashboard.
           </p>
           <Button asChild variant="outline">
             <Link to="/">Back to Home</Link>
@@ -236,7 +244,10 @@ const AdminDashboardPage = () => {
             ) : (
               <div className="space-y-4">
                 {pendingShops.map((shop) => (
-                  <div key={shop.id} className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-lg border border-border p-4">
+                  <div
+                    key={shop.id}
+                    className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-lg border border-border p-4"
+                  >
                     <div className="flex-1 min-w-0 flex items-start gap-4">
                       {shop.logo ? (
                         <img src={shop.logo} alt="" className="h-14 w-14 rounded-lg object-cover shrink-0" />
@@ -251,12 +262,16 @@ const AdminDashboardPage = () => {
                         {ownerByShopId[shop.id] && (
                           <p className="text-xs text-muted-foreground mt-1">
                             Owner: {ownerByShopId[shop.id].full_name || ownerByShopId[shop.id].username || '—'}
-                            {ownerByShopId[shop.id].username && <span className="ml-1">@{ownerByShopId[shop.id].username}</span>}
+                            {ownerByShopId[shop.id].username && (
+                              <span className="ml-1">@{ownerByShopId[shop.id].username}</span>
+                            )}
                           </p>
                         )}
                         {shop.bio && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{shop.bio}</p>}
                         {shop.created_at && (
-                          <p className="text-xs text-muted-foreground mt-0.5">Applied {new Date(shop.created_at).toLocaleDateString()}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Applied {new Date(shop.created_at).toLocaleDateString()}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -327,7 +342,12 @@ const AdminDashboardPage = () => {
                             <Button size="sm" variant="outline" asChild>
                               <Link to={`/shop/${shop.slug}`} target="_blank" rel="noopener noreferrer">View</Link>
                             </Button>
-                            <Button size="sm" variant="destructive" onClick={() => handleDeleteShop(shop)} disabled={deletingShopId === shop.id}>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteShop(shop)}
+                              disabled={deletingShopId === shop.id}
+                            >
                               {deletingShopId === shop.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-1" /> Delete</>}
                             </Button>
                           </div>
@@ -342,7 +362,7 @@ const AdminDashboardPage = () => {
         </Card>
 
         {/* Users */}
-        <Card className="mb-6">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -374,67 +394,69 @@ const AdminDashboardPage = () => {
                       const isSeller = allShops.some((s) => s.owner_id === p.id);
                       const displayRole = p.role === 'admin' ? 'Admin' : isSeller ? 'Seller' : 'Customer';
                       return (
-                        <tr key={p.id} className="border-b border-border/50">
-                          <td className="py-3">{p.full_name || '—'}</td>
-                          <td className="py-3 text-muted-foreground">@{p.username ?? '—'}</td>
-                          <td className="py-3">
-                            {displayRole === 'Admin' && (
-                              <span className="inline-flex items-center gap-1 text-primary font-medium">
-                                <Shield className="h-4 w-4" /> Admin
-                              </span>
-                            )}
-                            {displayRole === 'Seller' && (
-                              <span className="inline-flex items-center gap-1 text-muted-foreground">
-                                <Store className="h-4 w-4" /> Seller
-                              </span>
-                            )}
-                            {displayRole === 'Customer' && <span className="text-muted-foreground">Customer</span>}
-                          </td>
-                          <td className="py-3 text-muted-foreground">
-                            {p.created_at ? new Date(p.created_at).toLocaleDateString() : '—'}
-                          </td>
-                          <td className="py-3 text-right">
-                            <div className="flex justify-end gap-2 flex-wrap">
-                              {p.id !== user.id && (
-                                <>
-                                  {p.role === 'admin' ? (
-                                    <Button size="sm" variant="outline" onClick={() => handleSetAdmin(p, false)} disabled={updatingRoleId === p.id}>
-                                      {updatingRoleId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove admin'}
-                                    </Button>
-                                  ) : (
-                                    <Button size="sm" variant="outline" onClick={() => handleSetAdmin(p, true)} disabled={updatingRoleId === p.id}>
-                                      {updatingRoleId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Shield className="h-4 w-4 mr-1" /> Make admin</>}
-                                    </Button>
-                                  )}
-                                  <Button size="sm" variant="destructive" onClick={() => handleDeleteUser(p)} disabled={deletingUserId === p.id}>
-                                    {deletingUserId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-1" /> Delete user</>}
+                      <tr key={p.id} className="border-b border-border/50">
+                        <td className="py-3">{p.full_name || '—'}</td>
+                        <td className="py-3 text-muted-foreground">@{p.username ?? '—'}</td>
+                        <td className="py-3">
+                          {displayRole === 'Admin' && (
+                            <span className="inline-flex items-center gap-1 text-primary font-medium">
+                              <Shield className="h-4 w-4" /> Admin
+                            </span>
+                          )}
+                          {displayRole === 'Seller' && (
+                            <span className="inline-flex items-center gap-1 text-muted-foreground">
+                              <Store className="h-4 w-4" /> Seller
+                            </span>
+                          )}
+                          {displayRole === 'Customer' && (
+                            <span className="text-muted-foreground">Customer</span>
+                          )}
+                        </td>
+                        <td className="py-3 text-muted-foreground">
+                          {p.created_at ? new Date(p.created_at).toLocaleDateString() : '—'}
+                        </td>
+                        <td className="py-3 text-right">
+                          <div className="flex justify-end gap-2 flex-wrap">
+                            {p.id !== user.id && (
+                              <>
+                                {p.role === 'admin' ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleSetAdmin(p, false)}
+                                    disabled={updatingRoleId === p.id}
+                                  >
+                                    {updatingRoleId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove admin'}
                                   </Button>
-                                </>
-                              )}
-                              {p.id === user.id && <span className="text-muted-foreground text-xs">(you)</span>}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleSetAdmin(p, true)}
+                                    disabled={updatingRoleId === p.id}
+                                  >
+                                    {updatingRoleId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Shield className="h-4 w-4 mr-1" /> Make admin</>}
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleDeleteUser(p)}
+                                  disabled={deletingUserId === p.id}
+                                >
+                                  {deletingUserId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-1" /> Delete user</>}
+                                </Button>
+                              </>
+                            )}
+                            {p.id === user.id && <span className="text-muted-foreground text-xs">(you)</span>}
+                          </div>
+                        </td>
+                      </tr>
+                    );})}
                   </tbody>
                 </table>
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Promotional Email Sender */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
-              Promotional Emails
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">Compose and send promotional emails to your users.</p>
-          </CardHeader>
-          <CardContent>
-            <PromotionalEmailSender />
           </CardContent>
         </Card>
       </main>

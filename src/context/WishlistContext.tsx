@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/untyped';
+import { supabase } from '@/integrations/supabase/client';
 
 const WISHLIST_STORAGE_KEY = 'shop-social-wishlist';
 

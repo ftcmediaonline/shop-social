@@ -20,7 +20,6 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
-          phone: string | null
           updated_at: string
           user_id: string
         }
@@ -29,7 +28,6 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
-          phone?: string | null
           updated_at?: string
           user_id: string
         }
@@ -38,51 +36,8 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
-          phone?: string | null
           updated_at?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      promotional_emails: {
-        Row: {
-          body: string
-          created_at: string | null
-          created_by: string
-          id: string
-          open_rate: number | null
-          recipient_count: number | null
-          recipient_group: string
-          scheduled_at: string | null
-          sent_at: string | null
-          status: string
-          subject: string
-        }
-        Insert: {
-          body: string
-          created_at?: string | null
-          created_by: string
-          id?: string
-          open_rate?: number | null
-          recipient_count?: number | null
-          recipient_group: string
-          scheduled_at?: string | null
-          sent_at?: string | null
-          status?: string
-          subject: string
-        }
-        Update: {
-          body?: string
-          created_at?: string | null
-          created_by?: string
-          id?: string
-          open_rate?: number | null
-          recipient_count?: number | null
-          recipient_group?: string
-          scheduled_at?: string | null
-          sent_at?: string | null
-          status?: string
-          subject?: string
         }
         Relationships: []
       }

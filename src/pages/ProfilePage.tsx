@@ -24,16 +24,16 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/untyped';
+import { supabase } from '@/integrations/supabase/client';
 
 type ProfileRow = {
   id: string;
   user_id: string | null;
-  username?: string | null;
+  username: string | null;
   full_name: string | null;
   avatar_url: string | null;
-  phone?: string | null;
-  role?: string | null;
+  phone: string | null;
+  role: string | null;
 };
 
 const ProfilePage = () => {
@@ -55,7 +55,7 @@ const ProfilePage = () => {
       return;
     }
     (async () => {
-      const { data: profileData } = await supabase
+      const { data: profileData } = await (supabase as any)
         .from('profiles')
         .select('*')
         .or(`id.eq.${user.id},user_id.eq.${user.id}`)
@@ -72,7 +72,7 @@ const ProfilePage = () => {
         setEditPhone('');
       }
 
-      const { data: shopData } = await supabase
+      const { data: shopData } = await (supabase as any)
         .from('shops')
         .select('id')
         .eq('owner_id', user.id)
@@ -89,8 +89,8 @@ const ProfilePage = () => {
     const phone = editPhone.trim() || null;
 
     if (profile?.id) {
-      const { error } = await (supabase
-        .from('profiles') as any)
+      const { error } = await (supabase as any)
+        .from('profiles')
         .update({ full_name: fullName, phone })
         .eq('id', profile.id);
       setSaving(false);
@@ -100,7 +100,7 @@ const ProfilePage = () => {
       }
       setProfile((prev) => (prev ? { ...prev, full_name: fullName, phone } : null));
     } else {
-      const { error } = await (supabase.from('profiles') as any).insert({
+      const { error } = await (supabase as any).from('profiles').insert({
         user_id: user.id,
         full_name: fullName,
         phone: phone || null,
@@ -111,7 +111,7 @@ const ProfilePage = () => {
         toast({ title: 'Could not save profile', description: error.message, variant: 'destructive' });
         return;
       }
-      const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      const { data } = await (supabase as any).from('profiles').select('*').eq('user_id', user.id).maybeSingle();
       setProfile((data as unknown as ProfileRow) ?? null);
     }
     setEditing(false);

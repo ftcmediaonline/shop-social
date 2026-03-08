@@ -4,7 +4,7 @@ import { CartItem, Product, Shop } from '@/types';
 import { getShopById } from '@/data/mockData';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/untyped';
+import { supabase } from '@/integrations/supabase/client';
 
 const PLACEHOLDER_IMAGE = 'https://placehold.co/600x600?text=Product';
 const PLACEHOLDER_LOGO = 'https://placehold.co/200x200?text=Shop';
@@ -186,7 +186,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           })
           .select('id')
           .single()
-          .then(({ data: row }) => {
+          .then(({ data: row }: any) => {
             if (row) {
               setItems((prev) =>
                 prev.map((item) =>
