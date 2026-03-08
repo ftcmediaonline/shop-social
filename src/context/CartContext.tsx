@@ -4,7 +4,7 @@ import { CartItem, Product, Shop } from '@/types';
 import { getShopById } from '@/data/mockData';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/untyped';
 
 const PLACEHOLDER_IMAGE = 'https://placehold.co/600x600?text=Product';
 const PLACEHOLDER_LOGO = 'https://placehold.co/200x200?text=Shop';
@@ -110,7 +110,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const loadCartFromSupabase = useCallback(async () => {
     if (!user) return;
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('cart_items')
       .select('*, products(*, product_images(image_url), shops(*))')
       .eq('user_id', user.id);
@@ -159,7 +159,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const newQty = newItems[existingItemIndex].quantity + quantity;
         newItems[existingItemIndex] = { ...newItems[existingItemIndex], quantity: newQty };
         if (user && typeof newItems[existingItemIndex].id === 'string' && newItems[existingItemIndex].id.length === 36) {
-          supabase
+          (supabase as any)
             .from('cart_items')
             .update({ quantity: newQty })
             .eq('id', newItems[existingItemIndex].id)
@@ -176,7 +176,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         selectedVariants: variants,
       };
       if (user) {
-        supabase
+        (supabase as any)
           .from('cart_items')
           .insert({
             user_id: user.id,
@@ -203,7 +203,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const removeFromCart = (itemId: string) => {
     if (user && itemId.length === 36 && !itemId.startsWith('temp-')) {
-      supabase.from('cart_items').delete().eq('id', itemId).eq('user_id', user.id).then(() => {});
+      (supabase as any).from('cart_items').delete().eq('id', itemId).eq('user_id', user.id).then(() => {});
     }
     setItems((prev) => prev.filter((item) => item.id !== itemId));
   };
@@ -217,7 +217,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       prev.map((item) => {
         if (item.id !== itemId) return item;
         if (user && itemId.length === 36 && !itemId.startsWith('temp-')) {
-          supabase.from('cart_items').update({ quantity }).eq('id', itemId).eq('user_id', user.id).then(() => {});
+          (supabase as any).from('cart_items').update({ quantity }).eq('id', itemId).eq('user_id', user.id).then(() => {});
         }
         return { ...item, quantity };
       })
@@ -226,7 +226,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const clearCart = () => {
     if (user) {
-      supabase.from('cart_items').delete().eq('user_id', user.id).then(() => {});
+      (supabase as any).from('cart_items').delete().eq('user_id', user.id).then(() => {});
     }
     setItems([]);
   };

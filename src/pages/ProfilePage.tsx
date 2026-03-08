@@ -24,16 +24,16 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/untyped';
 
 type ProfileRow = {
   id: string;
   user_id: string | null;
-  username: string | null;
+  username?: string | null;
   full_name: string | null;
   avatar_url: string | null;
-  phone: string | null;
-  role: string | null;
+  phone?: string | null;
+  role?: string | null;
 };
 
 const ProfilePage = () => {
@@ -61,7 +61,7 @@ const ProfilePage = () => {
         .or(`id.eq.${user.id},user_id.eq.${user.id}`)
         .maybeSingle();
 
-      const row = profileData as ProfileRow | null;
+      const row = profileData as unknown as ProfileRow | null;
       setProfile(row ?? null);
       if (row) {
         setEditName(row.full_name ?? '');
@@ -89,9 +89,9 @@ const ProfilePage = () => {
     const phone = editPhone.trim() || null;
 
     if (profile?.id) {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ full_name: fullName, phone } as Record<string, unknown>)
+      const { error } = await (supabase
+        .from('profiles') as any)
+        .update({ full_name: fullName, phone })
         .eq('id', profile.id);
       setSaving(false);
       if (error) {
@@ -100,19 +100,19 @@ const ProfilePage = () => {
       }
       setProfile((prev) => (prev ? { ...prev, full_name: fullName, phone } : null));
     } else {
-      const { error } = await supabase.from('profiles').insert({
+      const { error } = await (supabase.from('profiles') as any).insert({
         user_id: user.id,
         full_name: fullName,
         phone: phone || null,
         username: user.email?.replace(/@.*/, '') ?? `user_${user.id.slice(0, 8)}`,
-      } as Record<string, unknown>);
+      });
       setSaving(false);
       if (error) {
         toast({ title: 'Could not save profile', description: error.message, variant: 'destructive' });
         return;
       }
       const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
-      setProfile((data as ProfileRow) ?? null);
+      setProfile((data as unknown as ProfileRow) ?? null);
     }
     setEditing(false);
     toast({ title: 'Profile updated' });
