@@ -110,8 +110,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const loadCartFromSupabase = useCallback(async () => {
     if (!user) return;
-    const { data, error } = await (supabase
-      .from('cart_items') as any)
+    const { data, error } = await (supabase as any)
+      .from('cart_items')
       .select('*, products(*, product_images(image_url), shops(*))')
       .eq('user_id', user.id);
     if (error) {
