@@ -37,11 +37,11 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const loadFromSupabase = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('product_likes')
+    const { data } = await (supabase
+      .from('product_likes') as any)
       .select('product_id')
       .eq('user_id', user.id);
-    const ids = (data ?? []).map((row) => row.product_id);
+    const ids = (data ?? []).map((row: any) => row.product_id);
     setWishlistIds(ids);
     setLoaded(true);
   }, [user]);
