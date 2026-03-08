@@ -95,8 +95,8 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
       const next = wishlistIds.filter((id) => id !== productId);
       setWishlistIds(next);
       if (user) {
-        (supabase
-          .from('product_likes') as any)
+        (supabase as any)
+          .from('product_likes')
           .delete()
           .eq('user_id', user.id)
           .eq('product_id', productId)

@@ -46,14 +46,14 @@ const Header = () => {
       setHasShop(false);
       return;
     }
-    (supabase
-      .from('profiles') as any)
+    (supabase as any)
+      .from('profiles')
       .select('role')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }: any) => setIsAdmin(data?.role === 'admin'));
-    (supabase
-      .from('shops') as any)
+    (supabase as any)
+      .from('shops')
       .select('id')
       .eq('owner_id', user.id)
       .maybeSingle()
