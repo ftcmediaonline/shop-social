@@ -19,6 +19,18 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/untyped';
+import {
+  Package,
+  Plus,
+  Star,
+  MessageSquare,
+  Loader2,
+  Store,
+  Settings,
+  ShoppingCart,
+  Phone,
+  Mail,
+} from 'lucide-react';
 
 type Shop = any;
 type Product = any;
