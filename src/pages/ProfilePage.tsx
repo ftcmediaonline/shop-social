@@ -89,9 +89,9 @@ const ProfilePage = () => {
     const phone = editPhone.trim() || null;
 
     if (profile?.id) {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ full_name: fullName, phone } as Record<string, unknown>)
+      const { error } = await (supabase
+        .from('profiles') as any)
+        .update({ full_name: fullName, phone })
         .eq('id', profile.id);
       setSaving(false);
       if (error) {
