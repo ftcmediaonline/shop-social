@@ -112,7 +112,7 @@ const ProfilePage = () => {
         return;
       }
       const { data } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
-      setProfile((data as ProfileRow) ?? null);
+      setProfile((data as unknown as ProfileRow) ?? null);
     }
     setEditing(false);
     toast({ title: 'Profile updated' });

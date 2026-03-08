@@ -226,7 +226,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const clearCart = () => {
     if (user) {
-      supabase.from('cart_items').delete().eq('user_id', user.id).then(() => {});
+      (supabase.from('cart_items') as any).delete().eq('user_id', user.id).then(() => {});
     }
     setItems([]);
   };
