@@ -100,12 +100,12 @@ const ProfilePage = () => {
       }
       setProfile((prev) => (prev ? { ...prev, full_name: fullName, phone } : null));
     } else {
-      const { error } = await supabase.from('profiles').insert({
+      const { error } = await (supabase.from('profiles') as any).insert({
         user_id: user.id,
         full_name: fullName,
         phone: phone || null,
         username: user.email?.replace(/@.*/, '') ?? `user_${user.id.slice(0, 8)}`,
-      } as Record<string, unknown>);
+      });
       setSaving(false);
       if (error) {
         toast({ title: 'Could not save profile', description: error.message, variant: 'destructive' });
